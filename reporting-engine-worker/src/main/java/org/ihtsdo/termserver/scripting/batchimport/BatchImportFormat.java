@@ -1,20 +1,18 @@
 package org.ihtsdo.termserver.scripting.batchimport;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.commons.csv.CSVRecord;
-import org.ihtsdo.otf.rest.exception.BusinessServiceException;
-import org.ihtsdo.termserver.scripting.domain.Concept;
-import org.ihtsdo.termserver.scripting.domain.Description;
+import org.ihtsdo.termserver.scripting.GraphLoader;
+import org.ihtsdo.termserver.scripting.TermServerScriptException;
+import org.ihtsdo.termserver.scripting.domain.*;
+import org.ihtsdo.termserver.scripting.util.SnomedUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.primitives.Ints;
 
-public class BatchImportFormat {
+public class BatchImportFormat implements RF2Constants {
 	
 	private static final Logger LOGGER = LoggerFactory.getLogger(BatchImportFormat.class);
 
@@ -88,7 +86,7 @@ public class BatchImportFormat {
 	
 	public static int[] LOINC_Documentation = new int[] {25,26,27};
 
-	private static BatchImportFormat create(FORMAT format) throws BusinessServiceException {
+	private static BatchImportFormat create(FORMAT format) throws TermServerScriptException {
 		//Booleans are:  defines by expression, constructs FSN, multipleTerms
 		if (format == FORMAT.SIRS) {
 			return new BatchImportFormat(FORMAT.SIRS, SIRS_MAP, null, false, true, false);
@@ -98,7 +96,7 @@ public class BatchImportFormat {
 			
 			return new BatchImportFormat(FORMAT.LOINC, LOINC_MAP, LOINC_Documentation, false, false, true);
 		} else {
-			throw new BusinessServiceException("Unsupported format: " + format);
+			throw new TermServerScriptException("Unsupported format: " + format);
 		}
 	}
 	
@@ -113,30 +111,23 @@ public class BatchImportFormat {
 		}
 	}
 	
-	public int getIndex(FIELD field) throws BusinessServiceException {
+	public int getIndex(FIELD field) throws TermServerScriptException {
 		if (fieldMap.containsKey(field)) {
 			return Integer.parseInt(fieldMap.get(field));
 		}
 		return FIELD_NOT_FOUND;
 	}
 	
-	public Concept createConcept(CSVRecord row) throws BusinessServiceException {
+	public Concept createConcept(CSVRecord row) throws TermServerScriptException {
 		Concept concept;
 		String sctid = row.get(getIndex(FIELD.SCTID)).trim();
-		//We need an sctid in order to keep track of the row, so form from row number if null
-		if (sctid.isEmpty()) {
-			sctid = "row_" + row.getRecordNumber();
-		}
-		
-		boolean requiresNewSCTID = false;
-		if (sctid.equals(NEW_SCTID) ) {
-			requiresNewSCTID = true;
-			sctid += "_" + row.getRecordNumber();
+		if (sctid.isEmpty() || sctid.equals(NEW_SCTID) ) {
+			sctid = null;
 		}
 		
 		if (definesByExpression) {
 			String expressionStr = row.get(getIndex(FIELD.EXPRESSION)).trim();
-			concept = new BatchImportConcept (sctid, row, expressionStr, requiresNewSCTID);
+			concept = createConcept(sctid, row, expressionStr);
 		} else {
 			ArrayList<String> parents = new ArrayList<>();
 			parents.add(row.get(getIndex(FIELD.PARENT_1)));
@@ -144,7 +135,7 @@ public class BatchImportFormat {
 			if (parent2Idx != FIELD_NOT_FOUND && !row.get(parent2Idx).isEmpty()) {
 				parents.add(row.get(parent2Idx));
 			}
-			concept = new BatchImportConcept (sctid, parents, row, requiresNewSCTID);
+			concept = createConcept(sctid, parents, row);
 		}
 		
 		if (multipleTerms) {
@@ -155,11 +146,12 @@ public class BatchImportFormat {
 					if (!termStr.isEmpty() && !termStr.toUpperCase().equals(NULL_STR)) {
 						char usAccept = row.get(i+1).isEmpty()? null : row.get(i+1).charAt(0);
 						char gbAccept =  row.get(i+2).isEmpty()? null : row.get(i+2).charAt(0);
-						Description term = new BatchImportTerm(termStr, false, usAccept, gbAccept);
+						Description term = createDescription(termStr, false, usAccept, gbAccept);
 						i += 3;
 						//Do we have a CAPS indicator here?
 						if (headers[i].toLowerCase().startsWith("caps")) {
-							term.setCaseSensitivity(row.get(i));
+							throw new IllegalStateException("Unexpected caps indicator");
+							//term.setCaseSensitivity(row.get(i));
 						} else {
 							i--;  //Move back one because loop will take us on to the next term.
 						}
@@ -172,7 +164,39 @@ public class BatchImportFormat {
 		return concept;
 	}
 
-	public List<String> getAllNotes(Concept thisConcept) throws BusinessServiceException {
+	private Concept createConcept(String sctid, ArrayList<String> parents, CSVRecord row) {
+		throw new IllegalStateException ("TODO - Code for non-expression concepts");
+	}
+
+	private Concept createConcept(String sctid, CSVRecord row, String expressionStr) throws TermServerScriptException {
+		Concept c = new Concept(sctid);
+		String fsnStr = row.get(getIndex(FIELD.FSN));
+		Description fsn = Description.withDefaults(fsnStr, DescriptionType.FSN, Acceptability.PREFERRED);
+		c.addDescription(fsn);
+		
+		GraphLoader gl = GraphLoader.getGraphLoader();
+		BatchImportExpression expression = BatchImportExpression.parse(expressionStr, SCTID_MODEL_MODULE);
+		for (String parentStr : expression.getFocusConcepts()) {
+			Relationship parentRel = new Relationship (c, IS_A, gl.getConcept(parentStr), UNGROUPED);
+			c.addRelationship(parentRel);
+		}
+		
+		for (RelationshipGroup group : expression.getAttributeGroups()) {
+			c.addRelationshipGroup(group, null);
+		}
+		return c;
+	}
+	
+	private Description createDescription(String termStr, boolean b, char usAcceptStr, char gbAcceptStr) {
+		Description d = Description.withDefaults(termStr,  DescriptionType.SYNONYM);
+		Acceptability usAccept = SnomedUtils.translateAcceptability(usAcceptStr);
+		Acceptability gbAccept = SnomedUtils.translateAcceptability(gbAcceptStr);
+		d.getAcceptabilityMap().put(US_ENG_LANG_REFSET, usAccept);
+		d.getAcceptabilityMap().put(GB_ENG_LANG_REFSET, gbAccept);
+		return d;
+	}
+
+/*	public List<String> getAllNotes(Concept thisConcept) throws TermServerScriptException {
 		List<String> notes = new ArrayList<>();
 		for (int notesField : notesFields) {
 			try {
@@ -187,7 +211,7 @@ public class BatchImportFormat {
 		return notes;
 	}
 	
-	public List<String> getAllSynonyms(Concept thisConcept) throws BusinessServiceException {
+	public List<String> getAllSynonyms(Concept thisConcept) throws TermServerScriptException {
 		List<String> synList = new ArrayList<>();
 		for (int synonymField : synonymFields) {
 			String thisSyn = thisConcept.getRow().get(synonymField);
@@ -196,9 +220,9 @@ public class BatchImportFormat {
 			}
 		}
 		return synList;
-	}
+	}*/
 
-	public static BatchImportFormat determineFormat(CSVRecord header) throws BusinessServiceException {
+	public static BatchImportFormat determineFormat(CSVRecord header) throws TermServerScriptException {
 		BatchImportFormat thisFormat = null;
 		for (Map.Entry<FORMAT, String[]> thisFormatHeaders : HEADERS_MAP.entrySet()) {
 			FORMAT checkFormat = thisFormatHeaders.getKey();
@@ -207,16 +231,19 @@ public class BatchImportFormat {
 			List<Integer> notesIndexList = new ArrayList<>();
 			List<Integer> synonymIndexList = new ArrayList<>();
 			for (int colIdx=0; colIdx < header.size() && !mismatchDetected ;colIdx++) {
-				if (colIdx < checkHeaders.length && !header.get(colIdx).equalsIgnoreCase(checkHeaders[colIdx])) {
-					LOGGER.info("File is not {} format because header {}:{} is not {}.", checkFormat, colIdx, header.get(colIdx), checkHeaders[colIdx]);
+				//The first column might have a BOM - byte order mark
+				String headerColumn = header.get(colIdx).replace("\uFEFF", "");
+				
+				if (colIdx < checkHeaders.length && !headerColumn.equalsIgnoreCase(checkHeaders[colIdx])) {
+					LOGGER.info("File is not {} format because header col {}: '{}' is not '{}' as required by that format.", checkFormat, colIdx, header.get(colIdx), checkHeaders[colIdx]);
 					mismatchDetected = true;
 				}
 				
-				if (header.get(colIdx).equalsIgnoreCase(NOTE)) {
+				if (headerColumn.equalsIgnoreCase(NOTE)) {
 					notesIndexList.add(colIdx);
 				}
 				
-				if (header.get(colIdx).equalsIgnoreCase(SYNONYM)) {
+				if (headerColumn.equalsIgnoreCase(SYNONYM)) {
 					synonymIndexList.add(colIdx);
 				}
 			}
@@ -229,7 +256,7 @@ public class BatchImportFormat {
 			}
 		}
 		if (thisFormat == null) {
-			throw new BusinessServiceException("File format could not be determined");
+			throw new TermServerScriptException("File format could not be determined");
 		}
 		return thisFormat;
 	
@@ -243,13 +270,13 @@ public class BatchImportFormat {
 		return constructsFSN;
 	}
 
-	public String[] getHeaders() throws BusinessServiceException {
+	public String[] getHeaders() throws TermServerScriptException {
 		switch (format) {
 			case SIRS : return SIRS_HEADERS;
 			case ICD11 : return ICD11_HEADERS;
 			case LOINC : return LOINC_HEADERS;
 		}
-		throw new BusinessServiceException("Unrecognised format: " + format);
+		throw new TermServerScriptException("Unrecognised format: " + format);
 	}
 	
 	public int[] getDocumentationFields() {

@@ -112,13 +112,7 @@ public class Description extends Component implements RF2Constants {
 	}
 	
 	public static Description withDefaults (String term, DescriptionType type, Acceptability acceptability) {
-		Description d = new Description();
-		d.setCaseSignificance(CaseSignificance.CASE_INSENSITIVE);
-		d.setLang(LANG_EN);
-		d.setModuleId(SCTID_CORE_MODULE);
-		d.setActive(true);
-		d.setTerm(term);
-		d.setType(type);
+		Description d = withDefaults(term, type);
 		if (acceptability != null) {
 			if (acceptability.equals(Acceptability.PREFERRED)) {
 				d.setAcceptabilityMap(SnomedUtils.createAcceptabilityMap(AcceptabilityMode.PREFERRED_BOTH));
@@ -126,6 +120,17 @@ public class Description extends Component implements RF2Constants {
 				d.setAcceptabilityMap(SnomedUtils.createAcceptabilityMap(AcceptabilityMode.ACCEPTABLE_BOTH));
 			}
 		}
+		return d;
+	}
+	
+	public static Description withDefaults (String term, DescriptionType type) {
+		Description d = new Description();
+		d.setCaseSignificance(CaseSignificance.CASE_INSENSITIVE);
+		d.setLang(LANG_EN);
+		d.setModuleId(SCTID_CORE_MODULE);
+		d.setActive(true);
+		d.setTerm(term);
+		d.setType(type);
 		return d;
 	}
 
@@ -228,6 +233,9 @@ public class Description extends Component implements RF2Constants {
 	}
 
 	public Map<String, Acceptability> getAcceptabilityMap() {
+		if (acceptabilityMap == null) {
+			acceptabilityMap = new HashMap<>();
+		}
 		return acceptabilityMap;
 	}
 

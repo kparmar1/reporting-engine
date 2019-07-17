@@ -5,9 +5,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.*;
-
+import org.apache.commons.csv.*;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.commons.lang.time.DurationFormatUtils;
+import org.ihtsdo.termserver.scripting.batchimport.BatchImportFormat;
 import org.ihtsdo.termserver.scripting.client.*;
 import org.ihtsdo.termserver.scripting.dao.RF2Manager;
 import org.ihtsdo.termserver.scripting.dao.ReportManager;
@@ -35,6 +36,7 @@ public abstract class TermServerScript implements RF2Constants {
 	protected boolean validateConceptOnUpdate = true;
 	protected boolean offlineMode = false;
 	protected boolean quiet = false; 
+	protected boolean useExcel = false;
 	protected static int dryRunCounter = 0;
 	protected String env;
 	protected String url = environments[0];
@@ -654,6 +656,7 @@ public abstract class TermServerScript implements RF2Constants {
 				ConceptType conceptType = c.getConceptType();
 				Concept createdConcept = attemptConceptCreation(t,c,info);
 				createdConcept.setConceptType(conceptType);
+				report (t, createdConcept, Severity.LOW, ReportActionType.CONCEPT_ADDED);
 				return createdConcept;
 			} catch (Exception e) {
 				attempt++;
@@ -765,42 +768,11 @@ public abstract class TermServerScript implements RF2Constants {
 		Set<Component> allComponents= new LinkedHashSet<>();
 		debug ("Loading input file " + file.getAbsolutePath());
 		try {
-			List<String> lines = Files.readLines(file, Charsets.UTF_8);
-			lines = StringUtils.removeBlankLines(lines);
-			
-			//Are we restarting the file from some line number
-			int startPos = (restartPosition == NOT_SET)?0:restartPosition - 1;
-			List<Component> components;
-			for (int lineNum = startPos; lineNum < lines.size(); lineNum++) {
-				if (lineNum == 0  && inputFileHasHeaderRow) {
-					continue; //skip header row  
-				}
-				String[] lineItems;
-				if (inputFileDelimiter == CSV_FIELD_DELIMITER) {
-					//File format Concept Type, SCTID, FSN with string fields quoted.  Strip quotes also.
-					lineItems = splitCarefully(lines.get(lineNum));
-				} else {
-					lineItems = lines.get(lineNum).replace("\"", "").split(inputFileDelimiter);
-				}
-				if (lineItems.length >= 1) {
-					try{
-						components = loadLine(lineItems);
-					} catch (Exception e) {
-						throw new TermServerScriptException("Failed to load line " + lineNum,e);
-					}
-					if (components != null && components.size() > 0) {
-						allComponents.addAll(components);
-					} else {
-						if (!expectNullConcepts) {
-							debug ("Skipped line " + lineNum + ": " + lines.get(lineNum) + ", malformed or not required?");
-						}
-					}
-				} else {
-					debug ("Skipping blank line " + lineNum);
-				}
+			if (useExcel) {
+				processExcelFile(file, allComponents);
+			} else {
+				processTSVFile(file, allComponents);
 			}
-			addSummaryInformation(CONCEPTS_IN_FILE, allComponents);
-
 		} catch (FileNotFoundException e) {
 			throw new TermServerScriptException("Unable to open input file " + file.getAbsolutePath(), e);
 		} catch (IOException e) {
@@ -809,6 +781,70 @@ public abstract class TermServerScript implements RF2Constants {
 		return new ArrayList<Component>(allComponents);
 	}
 	
+	private void processTSVFile(File file, Set<Component> allComponents) throws IOException, TermServerScriptException {
+		List<String> lines = Files.readLines(file, Charsets.UTF_8);
+		lines = StringUtils.removeBlankLines(lines);
+		
+		//Are we restarting the file from some line number
+		int startPos = (restartPosition == NOT_SET)?0:restartPosition - 1;
+		List<Component> components;
+		for (int lineNum = startPos; lineNum < lines.size(); lineNum++) {
+			if (lineNum == 0  && inputFileHasHeaderRow) {
+				continue; //skip header row  
+			}
+			String[] lineItems;
+			if (inputFileDelimiter == CSV_FIELD_DELIMITER) {
+				//File format Concept Type, SCTID, FSN with string fields quoted.  Strip quotes also.
+				lineItems = splitCarefully(lines.get(lineNum));
+			} else {
+				lineItems = lines.get(lineNum).replace("\"", "").split(inputFileDelimiter);
+			}
+			if (lineItems.length >= 1) {
+				try{
+					components = loadLine(lineItems);
+				} catch (Exception e) {
+					throw new TermServerScriptException("Failed to load line " + lineNum,e);
+				}
+				if (components != null && components.size() > 0) {
+					allComponents.addAll(components);
+				} else {
+					if (!expectNullConcepts) {
+						debug ("Skipped line " + lineNum + ": " + lines.get(lineNum) + ", malformed or not required?");
+					}
+				}
+			} else {
+				debug ("Skipping blank line " + lineNum);
+			}
+		}
+	}
+
+	private void processExcelFile(File file, Set<Component> allComponents) throws TermServerScriptException, IOException {
+		Reader in = new InputStreamReader(new FileInputStream(file));
+		
+		//SIRS files contain duplicate headers (eg multiple Notes columns) 
+		//So read 1st row as a record instead.
+		CSVParser parser = CSVFormat.EXCEL.parse(in);
+		CSVRecord header = parser.iterator().next();
+		BatchImportFormat format = BatchImportFormat.determineFormat(header);
+	
+		//And load the remaining records into memory
+		List<CSVRecord> rows = parser.getRecords();
+		// Loop through concepts and form them into a hierarchy to be loaded, if valid
+		int minViableColumns = format.getHeaders().length;
+		for (CSVRecord thisRow : rows) {
+			try {
+				if (thisRow.size() >= minViableColumns) {
+					allComponents.add(format.createConcept(thisRow));
+				} else {
+					warn("Blank row detected: " + thisRow);
+				}
+			} catch (Exception e) {
+				String msg = "Exception at row " + thisRow.getRecordNumber() + ": " + thisRow;
+				report ((Task)null, null, Severity.CRITICAL, ReportActionType.VALIDATION_ERROR, msg);
+			}
+		}
+	}
+
 	/*
 	 * Splits a line, ensuring that any commas that are within a quoted string are not treated as delimiters
 	 * https://stackoverflow.com/questions/1757065/java-splitting-a-comma-separated-string-but-ignoring-commas-in-quotes

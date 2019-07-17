@@ -67,10 +67,6 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 			allComponentsToProcess = super.processFile();
 		}
 		batchProcess(formIntoBatch(allComponentsToProcess));
-		/*if (emailDetails != null) {
-			String msg = "Batch Scripting has completed successfully." + getSummaryText();
-			sendEmail(msg, reportFiles[0]);
-		}*/
 		return allComponentsToProcess;
 	}
 	

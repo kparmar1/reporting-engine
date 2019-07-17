@@ -100,6 +100,17 @@ public class SnomedUtils implements RF2Constants {
 		throw new TermServerScriptException("Unable to translate Acceptability '" + sctid + "'");
 	}
 	
+
+	public static Acceptability translateAcceptability(char acceptStr) {
+		switch (acceptStr) {
+		case 'P' : return Acceptability.PREFERRED;
+		case 'A' : return Acceptability.ACCEPTABLE;
+		case 'N' : return Acceptability.NONE;
+		default : throw new IllegalArgumentException("Unexpected acceptability " + acceptStr);
+		}
+	}
+
+	
 	public static String[] translateLangRefset(Description d) throws TermServerScriptException {
 		String[] acceptabilities = new String[] {"N","N"};
 		for (LangRefsetEntry entry : d.getLangRefsetEntries(ActiveState.ACTIVE)) {

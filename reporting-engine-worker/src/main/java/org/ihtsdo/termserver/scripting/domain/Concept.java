@@ -1202,6 +1202,9 @@ public class Concept extends Component implements RF2Constants, Comparable<Conce
 
 	public int addRelationshipGroup(RelationshipGroup group, List<Relationship> availableForReuse) {
 		int changesMade = 0;
+		if (availableForReuse == null) {
+			availableForReuse = new ArrayList<>();
+		}
 		for (Relationship r : group.getRelationships()) {
 			//Do we have one of these relationships available to be reused?
 			for (Relationship reuseMe : new ArrayList<>(availableForReuse)) {

@@ -1,15 +1,11 @@
 package org.ihtsdo.termserver.scripting.batchimport;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
-import org.ihtsdo.otf.rest.client.snowowl.pojo.DefinitionStatus;
-import org.ihtsdo.otf.rest.exception.ProcessingException;
-import org.ihtsdo.snowowl.authoring.batchimport.api.pojo.batch.BatchImportGroup;
-import org.ihtsdo.snowowl.authoring.batchimport.api.service.SnomedBrowserConstants;
-import org.ihtsdo.termserver.scripting.domain.RF2Constants;
+import org.ihtsdo.termserver.scripting.GraphLoader;
+import org.ihtsdo.termserver.scripting.TermServerScriptException;
+import org.ihtsdo.termserver.scripting.domain.*;
 
 public class BatchImportExpression implements RF2Constants {
 	
@@ -30,13 +26,13 @@ public class BatchImportExpression implements RF2Constants {
 
 	private DefinitionStatus definitionStatus;
 	private List<String> focusConcepts;
-	private List<BatchImportGroup> attributeGroups;
+	private List<RelationshipGroup> attributeGroups;
 
 	private BatchImportExpression(){
 		
 	}
 	
-	public static BatchImportExpression parse(String expressionStr, String moduleId) throws ProcessingException {
+	public static BatchImportExpression parse(String expressionStr, String moduleId) throws TermServerScriptException {
 		BatchImportExpression result = new BatchImportExpression();
 		StringBuffer expressionBuff = new StringBuffer(expressionStr);
 		makeMachineReadable(expressionBuff);
@@ -47,7 +43,7 @@ public class BatchImportExpression implements RF2Constants {
 		return result;
 	}
 
-	static DefinitionStatus extractDefinitionStatus(StringBuffer expressionBuff) throws ProcessingException {
+	static DefinitionStatus extractDefinitionStatus(StringBuffer expressionBuff) throws TermServerScriptException {
 		Boolean isFullyDefined = null;
 		if (expressionBuff.indexOf(FULLY_DEFINED) == 0) {
 			isFullyDefined = Boolean.TRUE;
@@ -56,7 +52,7 @@ public class BatchImportExpression implements RF2Constants {
 		}
 		
 		if (isFullyDefined == null) {
-			throw new ProcessingException("Unable to determine Definition Status from: " + expressionBuff);
+			throw new TermServerScriptException("Unable to determine Definition Status from: " + expressionBuff);
 		}
 		
 		expressionBuff.delete(0, FULLY_DEFINED.length());
@@ -81,8 +77,8 @@ public class BatchImportExpression implements RF2Constants {
 		return Arrays.asList(focusConcepts);
 	}
 
-	static List<BatchImportGroup> extractGroups(StringBuffer expressionBuff, String moduleId) throws ProcessingException {
-		List<BatchImportGroup> groups = new ArrayList<>();
+	static List<RelationshipGroup> extractGroups(StringBuffer expressionBuff, String moduleId) throws TermServerScriptException, TermServerScriptException {
+		List<RelationshipGroup> groups = new ArrayList<>();
 		//Do we have any groups to parse?
 		if (expressionBuff == null || expressionBuff.length() == 0) {
 			return groups;
@@ -92,7 +88,7 @@ public class BatchImportExpression implements RF2Constants {
 			String[] arrGroup = expressionBuff.toString().split(GROUP_START);
 			int groupNumber = 0;
 			for (String thisGroupStr : arrGroup) {
-				BatchImportGroup newGroup = BatchImportGroup.parse(++groupNumber, thisGroupStr, moduleId);
+				RelationshipGroup newGroup = parse(++groupNumber, thisGroupStr, moduleId);
 				groups.add(newGroup);
 			}
 		} else if (Character.isDigit(expressionBuff.charAt(0))) {
@@ -103,19 +99,19 @@ public class BatchImportExpression implements RF2Constants {
 			int nextGroupClose = expressionBuff.indexOf(Character.toString(GROUP_END_CHAR));
 			//Case no further groups
 			if (nextGroupOpen == -1 && nextGroupClose == -1) {
-				BatchImportGroup newGroup = BatchImportGroup.parse(0, expressionBuff.toString(), moduleId);
+				RelationshipGroup newGroup = parse(0, expressionBuff.toString(), moduleId);
 				groups.add(newGroup);
 			} else if (nextGroupOpen > -1 && nextGroupClose > nextGroupOpen) {
-				BatchImportGroup newGroup = BatchImportGroup.parse(0, expressionBuff.substring(0, nextGroupOpen), moduleId);
+				RelationshipGroup newGroup = parse(0, expressionBuff.substring(0, nextGroupOpen), moduleId);
 				groups.add(newGroup);
 				//And now work through the bracketed groups
 				StringBuffer remainder = new StringBuffer(expressionBuff.substring(nextGroupOpen, expressionBuff.length()));
 				groups.addAll(extractGroups(remainder, moduleId));
 			} else {
-				throw new ProcessingException("Unable to separate grouped from ungrouped attributes in: " + expressionBuff.toString());
+				throw new TermServerScriptException("Unable to separate grouped from ungrouped attributes in: " + expressionBuff.toString());
 			}
 		} else {
-			throw new ProcessingException("Unable to parse attributes groups from: " + expressionBuff.toString());
+			throw new TermServerScriptException("Unable to parse attributes groups from: " + expressionBuff.toString());
 		}
 		return groups;
 	}
@@ -179,7 +175,31 @@ public class BatchImportExpression implements RF2Constants {
 		return focusConcepts;
 	}
 
-	public List<BatchImportGroup> getAttributeGroups() {
+	public List<RelationshipGroup> getAttributeGroups() {
 		return attributeGroups;
+	}
+	
+	public static RelationshipGroup parse(int groupNumber, String expression, String moduleId) throws TermServerScriptException, TermServerScriptException {
+		RelationshipGroup thisGroup = new RelationshipGroup(groupNumber);
+		String[] attributes = expression.split(BatchImportExpression.ATTRIBUTE_SEPARATOR);
+		int attributeNumber = 0;
+		for (String thisAttribute : attributes) {
+			String tmpId = "rel_" + groupNumber + "." + (attributeNumber++);
+			Relationship relationship = parseAttribute(groupNumber, tmpId, thisAttribute, moduleId);
+			thisGroup.addRelationship(relationship);
+		}
+		return thisGroup;
+	}
+
+	private static Relationship parseAttribute(int groupNum, String tmpId, String thisAttribute, String moduleId) throws TermServerScriptException, TermServerScriptException {
+		//Expected format  type=value so bomb out if we don't end up with two concepts
+		String[] attributeParts = thisAttribute.split(BatchImportExpression.TYPE_SEPARATOR);
+		if (attributeParts.length != 2) {
+			throw new TermServerScriptException("Unable to detect type=value in attribute: " + thisAttribute);
+		}
+		GraphLoader gl = GraphLoader.getGraphLoader();
+		Concept type = gl.getConcept(attributeParts[0]);
+		Concept value = gl.getConcept(attributeParts[1]);
+		return new Relationship(null, type, value, groupNum);
 	}
 }
