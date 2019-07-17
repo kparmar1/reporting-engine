@@ -858,6 +858,7 @@ public abstract class TermServerScript implements RF2Constants {
 	}
 	
 	public void addSummaryInformation(String item, Object detail) {
+		info(item + ": " + detail);
 		summaryDetails.put(item, detail);
 	}
 	
