@@ -2,48 +2,32 @@ package org.ihtsdo.termserver.scripting.client;
 
 import java.io.IOException;
 
+import java.util.*;
+
+import org.ihtsdo.termserver.scripting.domain.Concept;
 import org.ihtsdo.termserver.scripting.domain.Project;
 import org.ihtsdo.termserver.scripting.domain.Task;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.GsonHttpMessageConverter;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import us.monoid.json.JSONObject;
-import us.monoid.web.JSONResource;
-import us.monoid.web.Resty;
 
 public class AuthoringServicesClient {
 	RestTemplate restTemplate;
 	HttpHeaders headers;
-	private final Resty resty;
 	private final String serverUrl;
 	private final String cookie;
 	private static final String apiRoot = "authoring-services/";
-	private static final String ALL_CONTENT_TYPE = "*/*";
 	private static final String JSON_CONTENT_TYPE = "application/json";
 	
-	protected static Gson gson;
-	static {
-		GsonBuilder gsonBuilder = new GsonBuilder();
-		gsonBuilder.setPrettyPrinting();
-		gsonBuilder.disableHtmlEscaping();
-		gsonBuilder.excludeFieldsWithoutExposeAnnotation();
-		gson = gsonBuilder.create();
-	}
-
 	public AuthoringServicesClient(String serverUrl, String cookie) {
 		this.serverUrl = serverUrl;
 		this.cookie = cookie;
-		resty = new Resty(new RestyOverrideAccept(ALL_CONTENT_TYPE));
-		resty.withHeader("Cookie", this.cookie);
-		resty.withHeader("Connection", "close");
-		resty.authenticate(this.serverUrl, null,null);
 		
 		//sun.util.logging.PlatformLogger.getLogger("sun.net.www.protocol.http.HttpURLConnection").setLevel(PlatformLogger.Level.ALL);
 		//sun.util.logging.PlatformLogger.getLogger("sun.net.www.protocol.https.DelegateHttpsURLConnection").setLevel(PlatformLogger.Level.ALL);
@@ -71,15 +55,16 @@ public class AuthoringServicesClient {
 
 	public void setEditPanelUIState(String project, String taskKey, String quotedList) throws IOException {
 		String endPointRoot = serverUrl + apiRoot + "projects/" + project + "/tasks/" + taskKey + "/ui-state/";
-		String endPoint = endPointRoot + "edit-panel";
-		resty.json(endPoint, RestyHelper.content(quotedList, JSON_CONTENT_TYPE));
-		//TODO Move to locally maintained Resty so we can easily check for HTTP200 return status
+		String url = endPointRoot + "edit-panel";
+		HttpEntity<String> request = new HttpEntity<>(quotedList, headers);
+		restTemplate.postForEntity(url, request, Void.class);
 	}
 	
-	public void setSavedListUIState(String project, String taskKey, JSONObject items) throws IOException {
+	public void setSavedListUIState(String project, String taskKey, JsonObject items) throws IOException {
 		String endPointRoot = serverUrl + apiRoot + "projects/" + project + "/tasks/" + taskKey + "/ui-state/";
-		String endPoint = endPointRoot + "saved-list";
-		resty.json(endPoint, RestyHelper.content(items, JSON_CONTENT_TYPE));
+		String url = endPointRoot + "saved-list";
+		HttpEntity<Object> request = new HttpEntity<>(items, headers);
+		restTemplate.postForEntity(url, request, Void.class);
 	}
 	
 	public String updateTask(String project, String taskKey, String summary, String description, String author, String reviewer) throws Exception {
@@ -115,11 +100,12 @@ public class AuthoringServicesClient {
 	}
 	
 	public void deleteTask(String project, String taskKey, boolean optional) throws TermServerClientException {
-		String endPoint = serverUrl + apiRoot + "projects/" + project + "/tasks/" + taskKey;
+		String url = serverUrl + apiRoot + "projects/" + project + "/tasks/" + taskKey;
 		try {
-			JSONObject requestJson = new JSONObject();
-			requestJson.put("status", "DELETED");
-			resty.json(endPoint, Resty.put(RestyHelper.content(requestJson, JSON_CONTENT_TYPE)));
+			JsonObject requestJson = new JsonObject();
+			requestJson.addProperty("status", "DELETED");
+			HttpEntity<Object> request = new HttpEntity<>(requestJson, headers);
+			restTemplate.exchange(url, HttpMethod.PUT, request, Concept.class);
 		} catch (Exception e) {
 			String errStr = "Failed to delete task - " + taskKey;
 			if (optional) {
@@ -131,27 +117,19 @@ public class AuthoringServicesClient {
 	}
 
 	public Project getProject(String projectStr) throws TermServerClientException {
-		JSONResource response = null;
-		String json = null;
 		try {
-			String endPoint = serverUrl + apiRoot + "projects/" + projectStr;
-			response = resty.json(endPoint);
-			json = response.toObject().toString();
-			Project projectObj = gson.fromJson(json, Project.class);
-			return projectObj;
-		} catch (Exception e) {
-			throw new TermServerClientException("Unable to recover project " + projectStr +". Received: " + (json==null?"NULL" : json), e);
+			String url = serverUrl + apiRoot + "projects/" + projectStr;
+			return restTemplate.getForObject(url, Project.class);
+		} catch (RestClientException e) {
+			throw new TermServerClientException("Unable to recover project: " + projectStr, e);
 		}
 	}
 	
 	public Task getTask(String taskKey) throws TermServerClientException {
 		try {
 			String projectStr = taskKey.substring(0, taskKey.indexOf("-"));
-			String endPoint = serverUrl + apiRoot + "projects/" + projectStr + "/tasks/" + taskKey;
-			JSONResource response = resty.json(endPoint);
-			String json = response.toObject().toString();
-			Task taskObj = gson.fromJson(json, Task.class);
-			return taskObj;
+			String url = serverUrl + apiRoot + "projects/" + projectStr + "/tasks/" + taskKey;
+			return restTemplate.getForObject(url, Task.class);
 		} catch (Exception e) {
 			throw new TermServerClientException("Unable to recover task " + taskKey, e);
 		}
@@ -171,11 +149,9 @@ public class AuthoringServicesClient {
 	public Status validate(String taskKey) throws TermServerClientException {
 		try {
 			String projectStr = taskKey.substring(0, taskKey.indexOf("-"));
-			String endPoint = serverUrl + apiRoot + "projects/" + projectStr + "/tasks/" + taskKey + "/validation";
-			JSONResource response = resty.json(endPoint, Resty.content(""));
-			String json = response.toObject().toString();
-			Status status = gson.fromJson(json, Status.class);
-			return status;
+			String url = serverUrl + apiRoot + "projects/" + projectStr + "/tasks/" + taskKey + "/validation";
+			HttpEntity<String> request = new HttpEntity<>("");
+			return restTemplate.postForObject(url, request, Status.class);
 		} catch (Exception e) {
 			throw new TermServerClientException("Unable to initiate validation on " + taskKey, e);
 		}

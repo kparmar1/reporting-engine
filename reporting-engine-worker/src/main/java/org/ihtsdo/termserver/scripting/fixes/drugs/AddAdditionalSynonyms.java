@@ -48,15 +48,7 @@ public class AddAdditionalSynonyms extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = createAdditionalSynonyms(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + e.getMessage());
-			}
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

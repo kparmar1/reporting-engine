@@ -45,15 +45,7 @@ public class ReplaceExistingTerms extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = replaceTerms(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				if (!dryRun) {
-					debug ("Updating state of " + loadedConcept + info);
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

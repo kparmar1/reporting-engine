@@ -256,9 +256,9 @@ public class InactivateConcepts extends BatchFix implements RF2Constants {
 		}
 		
 		Concept replacement = null;
-		int idxReplacement = 1;
+		/*int idxReplacement = 1;
 		
-		/*if (lineItems.length > 2) {
+		if (lineItems.length > 2) {
 			idxReplacement = 2;
 			//In this case, column 1 will be in inactivation reason
 			String strInact = lineItems[1];

@@ -55,21 +55,10 @@ public class QI26_AddComplication extends BatchFix {
 
 	@Override
 	public int doFix(Task task, Concept concept, String info) throws TermServerScriptException {
-		int changesMade = 0;
-		try {
-			Concept loadedConcept = loadConcept(concept, task.getBranchPath());
-			changesMade = checkAndSetProximalPrimitiveParent(task, loadedConcept, COMPLICATION);
-			String conceptSerialised = gson.toJson(loadedConcept);
-			if (changesMade > 0) {
-				debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			}
-		} catch (ValidationFailure v) {
-			report(task, concept, v);
-		} catch (Exception e) {
-			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
+		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
+		int changesMade = checkAndSetProximalPrimitiveParent(task, loadedConcept, COMPLICATION);
+		if (changesMade > 0) {
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

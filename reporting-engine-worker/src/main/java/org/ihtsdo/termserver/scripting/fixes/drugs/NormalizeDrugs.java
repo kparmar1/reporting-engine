@@ -98,15 +98,8 @@ public class NormalizeDrugs extends DrugBatchFix implements RF2Constants{
 				report (task, loadedConcept, Severity.HIGH, ReportActionType.VALIDATION_CHECK, "Unable to mark fully defined - insufficient attributes!");
 			}
 		}
-		
-		try {
-			String conceptSerialised = gson.toJson(loadedConcept);
-			debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-			if (!dryRun) {
-				tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-			}
-		} catch (Exception e) {
-			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
+		if (changes > 0) {
+			save(task, loadedConcept, info);
 		}
 		return changes;
 	}

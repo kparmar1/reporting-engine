@@ -86,15 +86,7 @@ public class FlattenHierarchy extends BatchFix implements RF2Constants{
 		//At top level, we'll recover the expected target from the file, and we'll calculate the grandparents to be used.
 		flattenHierarchy(task, loadedConcept, null, modifiedConcepts, null, null);
 		for (Concept thisModifiedConcept : modifiedConcepts) {
-			try {
-				String conceptSerialised = gson.toJson(thisModifiedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + thisModifiedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, thisModifiedConcept, info);
 		}
 		incrementSummaryInformation("Concepts Modified", modifiedConcepts.size());
 		incrementSummaryInformation(task.getKey(), modifiedConcepts.size());

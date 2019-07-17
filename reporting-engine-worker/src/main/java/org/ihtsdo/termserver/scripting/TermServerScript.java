@@ -22,10 +22,6 @@ import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import us.monoid.json.JSONObject;
-import us.monoid.web.JSONResource;
-import us.monoid.web.Resty;
-
 public abstract class TermServerScript implements RF2Constants {
 	
 	static Logger logger = LoggerFactory.getLogger(TermServerScript.class);
@@ -46,7 +42,6 @@ public abstract class TermServerScript implements RF2Constants {
 	protected TermServerClient tsClient;
 	protected AuthoringServicesClient scaClient;
 	protected String authenticatedCookie;
-	protected Resty resty = new Resty();
 	protected Project project;
 	public static final int maxFailures = 5;
 	protected int restartPosition = NOT_SET;
@@ -253,8 +248,6 @@ public abstract class TermServerScript implements RF2Constants {
 			restartPosition = 1;
 		}
 		
-		//TODO Make calls through client objects rather than resty direct and remove this member 
-		resty.withHeader("Cookie", authenticatedCookie);  
 		scaClient = new AuthoringServicesClient(url, authenticatedCookie);
 		initialiseSnowOwlClient();
 		boolean loadingRelease = false;
@@ -535,16 +528,10 @@ public abstract class TermServerScript implements RF2Constants {
 		Concept concept =  gl.getConcept(sctId);
 		try {
 			debug ("Loading: " + concept + " from TS branch " + branchPath);
-			JSONResource response = client.getConcept(sctId, branchPath);
-			String json = response.toObject().toString();
-			Concept loadedConcept = gson.fromJson(json, Concept.class);
+			Concept loadedConcept = client.getConcept(sctId, branchPath);
 			loadedConcept.setLoaded(true);
 			return loadedConcept;
 		} catch (Exception e) {
-			if (e.getMessage().contains("[404] Not Found")) {
-				debug ("Unable to find " + concept + " on branch " + branchPath);
-				return null;
-			}
 			throw new TermServerScriptException("Failed to recover " + concept + " from TS due to " + e.getMessage(),e);
 		}
 	}
@@ -559,18 +546,11 @@ public abstract class TermServerScript implements RF2Constants {
 					validateConcept(t, c);
 				}
 				
-				conceptSerialised = gson.toJson(c);
 				debug ((dryRun ?"Dry run updating ":"Updating ") + "state of " + c + (info == null?"":info));
 				Concept savedConcept = c;
 				while (!updatedOK) {
 					try {
-						JSONResource response = tsClient.updateConcept(new JSONObject(conceptSerialised), t.getBranchPath());
-						String json = response.toObject().toString();
-						TSErrorMessage errorMsg = gson.fromJson(json, TSErrorMessage.class);
-						if (errorMsg.getCode() != null) {
-							throw new TermServerScriptException("Failed to update concept: " + errorMsg.getCode() + " - " + errorMsg.getDeveloperMessage());
-						}
-						savedConcept = gson.fromJson(json, Concept.class);
+						savedConcept = tsClient.updateConcept(c, t.getBranchPath());
 						ensureSaveEffective(c, savedConcept);
 						return savedConcept;
 					} catch (Exception e) {
@@ -677,18 +657,15 @@ public abstract class TermServerScript implements RF2Constants {
 	}
 	
 	private Concept attemptConceptCreation(Task t, Concept c, String info) throws Exception {
-		
-		String conceptSerialised = gson.toJson(c);
 		debug ((dryRun ?"Dry run creating ":"Creating ") + c + info);
+		Concept newConcept;
 		if (!dryRun) {
-			JSONResource response = tsClient.createConcept(new JSONObject(conceptSerialised), t.getBranchPath());
-			String json = response.toObject().toString();
-			c = gson.fromJson(json, Concept.class);
+			newConcept = tsClient.createConcept(c, t.getBranchPath());
 		} else {
-			c = c.clone("NEW_SCTID");
+			newConcept = c.clone("NEW_SCTID");
 		}
 		incrementSummaryInformation("Concepts created");
-		return c;
+		return newConcept;
 	}
 
 	/**

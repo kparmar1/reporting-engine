@@ -78,15 +78,7 @@ public class MoveConcepts extends BatchFix implements RF2Constants{
 		List<Concept> modifiedConcepts = new ArrayList<Concept>();
 		moveLocation(task, loadedConcept, modifiedConcepts);
 		for (Concept thisModifiedConcept : modifiedConcepts) {
-			try {
-				String conceptSerialised = gson.toJson(thisModifiedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + thisModifiedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, thisModifiedConcept, info);
 		}
 		incrementSummaryInformation(task.getKey(), modifiedConcepts.size());
 		return modifiedConcepts.size();

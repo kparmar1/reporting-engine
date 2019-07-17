@@ -3,40 +3,39 @@ package org.ihtsdo.termserver.scripting.domain;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
-import org.ihtsdo.termserver.scripting.domain.RF2Constants.ComponentType;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-public class RefsetEntry extends Component {
+public class RefsetEntry extends Component implements RF2Constants {
 
     @SerializedName("id")
     @Expose
-    private String id;
+	protected String id;
     @SerializedName("effectiveTime")
     @Expose
-    private String effectiveTime;
+    protected String effectiveTime;
     @SerializedName("released")
     @Expose
-    private Boolean released;
+    protected Boolean released;
     @SerializedName("active")
     @Expose
-    private Boolean active;
+    protected Boolean active;
     @SerializedName("moduleId")
     @Expose
-    private String moduleId;
+    protected String moduleId;
     @SerializedName("referencedComponent")
     @Expose
-    private ReferencedComponent referencedComponent;
+    protected ReferencedComponent referencedComponent;
     @SerializedName("referenceSetId")
     @Expose
-    private String referenceSetId;
+    protected String refsetId;
     @SerializedName("valueId")
     @Expose
-    private String valueId;
+    protected String valueId;
     @SerializedName("commitComment")
     @Expose
-    private String commitComment = "TermserverScript update";
+    protected String commitComment = "TermserverScript update";
 
     /**
      * No args constructor for use in serialization
@@ -62,7 +61,7 @@ public class RefsetEntry extends Component {
         this.active = active;
         this.moduleId = moduleId;
         this.referencedComponent = referencedComponent;
-        this.referenceSetId = referenceSetId;
+        this.refsetId = referenceSetId;
         this.valueId = valueId;
     }
 
@@ -109,13 +108,21 @@ public class RefsetEntry extends Component {
     public void setReferencedComponent(ReferencedComponent referencedComponent) {
         this.referencedComponent = referencedComponent;
     }
+    
+	public void setReferencedComponentId(String id) {
+		setReferencedComponent(new ReferencedComponent(id));
+	}
+	
+	public String getReferencedComponentId() {
+		return referencedComponent.toString();
+	}
 
     public String getReferenceSetId() {
-        return referenceSetId;
+        return refsetId;
     }
 
     public void setReferenceSetId(String referenceSetId) {
-        this.referenceSetId = referenceSetId;
+        this.refsetId = referenceSetId;
     }
 
     public String getValueId() {
@@ -128,7 +135,7 @@ public class RefsetEntry extends Component {
 
 	@Override
 	public String getReportedName() {
-		return referenceSetId;
+		return refsetId;
 	}
 
 	@Override
@@ -139,11 +146,14 @@ public class RefsetEntry extends Component {
 	public String toString() {
 		return id;
 	}
-	
 
-    public String getCommitComment() {
-    	return commitComment;
-    }
+	public String getCommitComment() {
+		return commitComment;
+	}
+	
+	public void setCommitComment(String comment) {
+		commitComment = comment;
+	}
 
 	public String getEffectiveTime() {
 		return effectiveTime;

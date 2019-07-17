@@ -51,13 +51,10 @@ public class InactivateDuplicateInactivationIndicators_fail extends BatchFix imp
 			for (InactivationIndicatorEntry i : concept.getInactivationIndicatorEntries()) {
 				if (i.isDirty() && !i.isActive()) {
 					try {
-						JSONObject inactivationJson = new JSONObject();
-						inactivationJson.put("id", i.getId());
-						inactivationJson.put("active", false);
-						inactivationJson.put("commitComment", "PWI Duplication inactivation indicator fix");
+						i.setCommitComment("PWI Duplication inactivation indicator fix");
 						debug ("Updating state of " + concept + info);
 						if (!dryRun) {
-							tsClient.updateRefsetMember(inactivationJson,  task.getBranchPath(), false); //Don't force delete
+							tsClient.updateRefsetMember(task.getBranchPath(), i, false); //Don't force delete
 						}
 					} catch (Exception e) {
 						report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed inactivation indicator " + i + " to TS: " + ExceptionUtils.getStackTrace(e));

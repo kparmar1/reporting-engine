@@ -271,25 +271,11 @@ public class Rf2Player extends BatchFix {
 			} 
 			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to make changes to concept " + concept.toString() + ": " + e.getClass().getSimpleName()  + " - " + additionalInfo);
 			e.printStackTrace();
-			return 0;
+			return NO_CHANGES_MADE;
 		}
 		
-		try{
-			String conceptSerialised = gson.toJson(loadedConcept);
-			debug ((dryRun?"Dry run updating":"Updating") + " state of " + loadedConcept + info);
-			if (!dryRun) {
-				tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-			}
-		} catch (Exception e) {
-			//See if we can get that 2nd level exception's reason which says what the problem actually was
-			String additionalInfo = "";
-			if (e.getCause().getCause() != null) {
-				additionalInfo = " - " + e.getCause().getCause().getMessage().replaceAll(COMMA, " ").replaceAll(QUOTE, "'");
-			} 
-			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + e.getClass().getSimpleName()  + " - " + additionalInfo);
-			e.printStackTrace();
-		}
-		return 1;
+		save(task, loadedConcept, info);
+		return CHANGE_MADE;
 	}
 
 	private boolean hasUnpublishedRelationships(Concept loadedConcept, CharacteristicType cType) {

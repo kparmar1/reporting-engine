@@ -1,27 +1,16 @@
 package org.ihtsdo.termserver.scripting.fixes.managedService;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.ValidationFailure;
 import org.ihtsdo.termserver.scripting.client.TermServerClientException;
-import org.ihtsdo.termserver.scripting.domain.Component;
-import org.ihtsdo.termserver.scripting.domain.Concept;
-import org.ihtsdo.termserver.scripting.domain.Description;
-import org.ihtsdo.termserver.scripting.domain.RF2Constants;
-import org.ihtsdo.termserver.scripting.domain.Relationship;
-import org.ihtsdo.termserver.scripting.domain.Task;
+import org.ihtsdo.termserver.scripting.domain.*;
 import org.ihtsdo.termserver.scripting.fixes.BatchFix;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
-
-import us.monoid.json.JSONObject;
 
 /*
 Fix takes concepts identified in the input file and ensures that the 
@@ -73,15 +62,7 @@ public class FixIncorrectModuleId extends BatchFix implements RF2Constants{
 	public int doFix(Task task, Concept loadedConcept) throws TermServerScriptException {
 		int changesMade = checkModuleId(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ("Updating state of " + loadedConcept);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, loadedConcept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + e.getMessage());
-			}
+			save(task, loadedConcept, null);
 		}
 		return changesMade;
 	}

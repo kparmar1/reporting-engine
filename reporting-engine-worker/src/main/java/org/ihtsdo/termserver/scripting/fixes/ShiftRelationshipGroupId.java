@@ -6,8 +6,6 @@ import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.client.TermServerClientException;
 import org.ihtsdo.termserver.scripting.domain.*;
 
-import us.monoid.json.JSONObject;
-
 /*
  * QI-21 Follow-up.   
  * Where we've erroneously inactivated a relationship and created a new one 
@@ -40,15 +38,7 @@ public class ShiftRelationshipGroupId extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = shiftRelationshipGroup(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + e.getMessage());
-			}
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

@@ -15,6 +15,9 @@ import org.ihtsdo.termserver.scripting.domain.*;
 import org.ihtsdo.termserver.scripting.util.SnomedUtils;
 import org.snomed.otf.scheduler.domain.JobRun;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import us.monoid.json.*;
 
 /**
@@ -657,15 +660,14 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		}
 	}
 	
-	protected void save (Task task, Concept loadedConcept, String info) throws TermServerScriptException {
+	protected void save (Task task, Concept concept, String info) throws TermServerScriptException {
 		try {
-			String conceptSerialised = gson.toJson(loadedConcept);
-			debug ((dryRun?"Dry run updating":"Updating") + " state of " + loadedConcept + info);
+			debug ((dryRun?"Dry run updating":"Updating") + " state of " + concept + info);
 			if (!dryRun) {
-				tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
+				tsClient.updateConcept(concept, task.getBranchPath());
 			}
 		} catch (Exception e) {
-			report(task, loadedConcept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
+			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
 		}
 	}
 	
@@ -962,27 +964,27 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		}
 	}
 
-	private JSONObject convertToSavedListJson(Task task) throws JSONException, TermServerScriptException {
-		JSONObject savedList = new JSONObject();
-		JSONArray items = new JSONArray();
-		savedList.put("items", items);
+	private JsonObject convertToSavedListJson(Task task) throws JSONException, TermServerScriptException {
+		JsonObject savedList = new JsonObject();
+		JsonArray items = new JsonArray();
+		savedList.add("items", items);
 		for (Component c : task.getComponents()) {
-			items.put(convertToSavedListJson((Concept)c));
+			items.add(convertToSavedListJson((Concept)c));
 		}
 		return savedList;
 	}
 
-	private JSONObject convertToSavedListJson(Concept concept) throws JSONException, TermServerScriptException {
-		JSONObject jsonObj = new JSONObject();
-		jsonObj.put("term", concept.getPreferredSynonym());
-		jsonObj.put("active", concept.isActive()?"true":"false");
-		JSONObject conceptObj = new JSONObject();
-		jsonObj.put("concept", conceptObj);
-		conceptObj.put("active", concept.isActive()?"true":"false");
-		conceptObj.put("conceptId", concept.getConceptId());
-		conceptObj.put("fsn", concept.getFsn());
-		conceptObj.put("moduleId", concept.getModuleId());
-		conceptObj.put("defintionStatus", concept.getDefinitionStatus());
+	private JsonObject convertToSavedListJson(Concept concept) throws JSONException, TermServerScriptException {
+		JsonObject jsonObj = new JsonObject();
+		jsonObj.addProperty("term", concept.getPreferredSynonym());
+		jsonObj.addProperty("active", concept.isActive()?"true":"false");
+		JsonObject conceptObj = new JsonObject();
+		jsonObj.add("concept", conceptObj);
+		conceptObj.addProperty("active", concept.isActive()?"true":"false");
+		conceptObj.addProperty("conceptId", concept.getConceptId());
+		conceptObj.addProperty("fsn", concept.getFsn());
+		conceptObj.addProperty("moduleId", concept.getModuleId());
+		conceptObj.addProperty("defintionStatus", concept.getDefinitionStatus().toString());
 		return jsonObj;
 	}
 	

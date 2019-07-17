@@ -2,6 +2,8 @@ package org.ihtsdo.termserver.scripting.client;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -11,20 +13,19 @@ import org.ihtsdo.termserver.scripting.domain.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpRequest;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.http.client.*;
 import org.springframework.http.converter.json.GsonHttpMessageConverter;
+import org.springframework.web.client.RequestCallback;
+import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import us.monoid.json.*;
-import us.monoid.web.*;
 
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 
 public class TermServerClient {
 	
@@ -49,11 +50,10 @@ public class TermServerClient {
 		gson = gsonBuilder.create();
 	}
 	
-	private final Resty resty;
 	private final RestTemplate restTemplate;
 	private final HttpHeaders headers;
 	private final String url;
-	private static final String ALL_CONTENT_TYPE = "*/*";
+	//private static final String ALL_CONTENT_TYPE = "*/*";
 	private static final String SNOWOWL_CONTENT_TYPE = "application/json";
 	private final Set<SnowOwlClientEventListener> eventListeners;
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -62,9 +62,6 @@ public class TermServerClient {
 	public TermServerClient(String serverUrl, String cookie) {
 		this.url = serverUrl;
 		eventListeners = new HashSet<>();
-		resty = new Resty(new RestyOverrideAccept(ALL_CONTENT_TYPE));
-		resty.withHeader("Cookie", cookie);
-		resty.authenticate(this.url, null,null);
 		
 		headers = new HttpHeaders();
 		headers.add("Cookie", cookie);
@@ -92,7 +89,6 @@ public class TermServerClient {
 			logger.debug("Recovering branch information from " + url);
 			return restTemplate.getForObject(url, Branch.class);
 		} catch (RestClientException e) {
-			
 			throw new TermServerClientException(translateRestClientException(e));
 		}
 	}
@@ -108,27 +104,28 @@ public class TermServerClient {
 		return e;
 	}
 
-	public JSONResource createConcept(JSONObject json, String branchPath) throws TermServerClientException {
-		final JSONResource newConcept;
+	public Concept createConcept(Concept concept, String branchPath) throws TermServerClientException {
 		try {
-			newConcept = resty.json(getConceptBrowserPath(branchPath), RestyHelper.content(json, SNOWOWL_CONTENT_TYPE));
-			logger.info("Created concept " + newConcept.get("conceptId") + " |" + newConcept.get("fsn") + "|");
+			HttpEntity<Concept> requestEntity = new HttpEntity<>(concept, headers);
+			Concept newConcept = restTemplate.postForObject(getConceptBrowserPath(branchPath), requestEntity, Concept.class);
+			logger.info("Created concept " + newConcept);
 			return newConcept;
 		} catch (Exception e) {
 			throw new TermServerClientException(e);
 		}
 	}
 
-	public JSONResource updateConcept(JSONObject concept, String branchPath) throws TermServerClientException {
+	public Concept updateConcept(Concept concept, String branchPath) throws TermServerClientException {
+		HttpEntity<Concept> response = null;
 		try {
-			JSONResource response = null;
-			final String id = concept.getString("conceptId");
+			final String id = concept.getConceptId();
 			Preconditions.checkNotNull(id);
 			boolean updatedOK = false;
 			int tries = 0;
 			while (!updatedOK) {
 				try {
-					response =  resty.json(getConceptBrowserPath(branchPath) + "/" + id, Resty.put(RestyHelper.content(concept, SNOWOWL_CONTENT_TYPE)));
+					HttpEntity<Concept> requestEntity = new HttpEntity<>(concept, headers);
+					response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Concept.class);
 					updatedOK = true;
 					logger.info("Updated concept " + id);
 				} catch (Exception e) {
@@ -140,25 +137,25 @@ public class TermServerClient {
 					Thread.sleep(30*1000); //Give the server 30 seconds to recover
 				}
 			}
-			return response;
+			return response.getBody();
 		} catch (Exception e) {
 			throw new TermServerClientException(e);
 		}
 	}
 
-	public JSONResource getConcept(String sctid, String branchPath) throws TermServerClientException {
+	public Concept getConcept(String sctid, String branchPath) throws TermServerClientException {
 		try {
-			return resty.json(getConceptBrowserPath(branchPath) + "/" + sctid);
-		} catch (IOException e) {
+			return restTemplate.getForObject(getConceptBrowserPath(branchPath) + "/" + sctid, Concept.class);
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
 
 	public void deleteConcept(String sctId, String branchPath) throws TermServerClientException {
 		try {
-			resty.json(getConceptsPath(sctId, branchPath), Resty.delete());
+			restTemplate.delete(getConceptsPath(sctId, branchPath));
 			logger.info("Deleted concept " + sctId + " from " + branchPath);
-		} catch (Exception e) {
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
@@ -191,17 +188,14 @@ public class TermServerClient {
 	private String getConceptBrowserValidationPath(String branchPath) {
 		return url + "/browser/" + branchPath + "/validate/concept";
 	}
-	
-	private String getDescriptionsPath(String branchPath, String id) {
-		return url  + "/" + branchPath + "/descriptions/" + id;
-	}
 
 	public String createBranch(String parent, String branchName) throws TermServerClientException {
 		try {
-			JSONObject jsonObject = new JSONObject();
-			jsonObject.put("parent", parent);
-			jsonObject.put("name", branchName);
-			resty.json(url + "/branches", RestyHelper.content(jsonObject, SNOWOWL_CONTENT_TYPE));
+			JsonObject requestJson = new JsonObject();
+			requestJson.addProperty("parent", parent);
+			requestJson.addProperty("name", branchName);
+			HttpEntity<Object> requestEntity = new HttpEntity<>(requestJson, headers);
+			restTemplate.postForEntity(url + "/branches", requestEntity, Branch.class);
 			final String branchPath = parent + "/" + branchName;
 			logger.info("Created branch {}", branchPath);
 			for (SnowOwlClientEventListener eventListener : eventListeners) {
@@ -213,41 +207,39 @@ public class TermServerClient {
 		}
 	}
 
-	public void mergeBranch(String source, String target) throws TermServerClientException {
-		try {
-			final JSONObject json = new JSONObject();
-			json.put("source", source);
-			json.put("target", target);
-			final String message = "Merging " + source + " to " + target;
-			json.put("commitComment", message);
-			logger.info(message);
-			resty.json(url + "/merges", RestyHelper.content(json, SNOWOWL_CONTENT_TYPE));
-		} catch (Exception e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
 	public void deleteBranch(String branchPath) throws TermServerClientException {
 		try {
-			resty.json(url + "/branches/" + branchPath, Resty.delete());
+			restTemplate.delete(url + "/branches/" + branchPath);
 			logger.info("Deleted branch {}", branchPath);
-		} catch (IOException e) {
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
 
-	public JSONResource search(String query, String branchPath) throws TermServerClientException {
+	public List<Concept> search(String query, String branchPath) throws TermServerClientException {
 		try {
-			return resty.json(url + "/browser/" + branchPath + "/descriptions?query=" + query);
-		} catch (IOException e) {
+			String url = this.url + "/browser/" + branchPath + "/descriptions?query=" + query;
+			ResponseEntity<List<Concept>> response = restTemplate.exchange(
+					url,
+					HttpMethod.GET,
+					null,
+					new ParameterizedTypeReference<List<Concept>>(){});
+			return response.getBody();
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
 
-	public JSONResource searchWithPT(String query, String branchPath) throws TermServerClientException {
+	public List<Concept> searchWithPT(String query, String branchPath) throws TermServerClientException {
 		try {
-			return resty.json(url + "/browser/" + branchPath + "/descriptions-pt?query=" + query);
-		} catch (IOException e) {
+			String url = this.url + "/browser/" + branchPath + "/descriptions-pt?query=" + query;
+			ResponseEntity<List<Concept>> response = restTemplate.exchange(
+					url,
+					HttpMethod.GET,
+					null,
+					new ParameterizedTypeReference<List<Concept>>(){});
+			return response.getBody();
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
@@ -266,19 +258,19 @@ public class TermServerClient {
 	 */
 	public String classifyAndWaitForComplete(String branchPath) throws TermServerClientException {
 		try {
-			final JSONObject json = new JSONObject();
-			json.put("reasonerId", "org.semanticweb.elk.elk.reasoner.factory");
+			final JsonObject json = new JsonObject();
+			json.addProperty("reasonerId", "org.semanticweb.elk.elk.reasoner.factory");
 			String url = this.url + "/" + branchPath + "/classifications";
 			System.out.println(url);
-			System.out.println(json.toString(3));
-			final JSONResource resource = resty.json(url, RestyHelper.content(json, SNOWOWL_CONTENT_TYPE));
-			final String location = resource.getUrlConnection().getHeaderField("Location");
+			System.out.println(json);
+			ResponseEntity<JsonObject> response = restTemplate.getForEntity(url, JsonObject.class);
+			final String location = response.getHeaders().getFirst("Location");
 			System.out.println("location " + location);
 
 			String status;
 			do {
-				final JSONObject jsonObject = resty.json(location).toObject();
-				status = jsonObject.getString("status");
+				final JsonObject jsonect = restTemplate.getForObject(location, JsonObject.class);
+				status = jsonect.get("status").getAsString();
 			} while (("SCHEDULED".equals(status) || "RUNNING".equals(status) && sleep(10)));
 
 			if ("COMPLETED".equals(status)) {
@@ -296,52 +288,21 @@ public class TermServerClient {
 		return true;
 	}
 
-	public Resty getResty() {
-		return resty;
-	}
-
-	public String getUrl() {
-		return url;
-	}
-
-	public JSONArray getMergeReviewDetails(String mergeReviewId) throws TermServerClientException {
-		logger.info("Getting merge review {}", mergeReviewId);
-		try {
-			return resty.json(getMergeReviewUrl(mergeReviewId) + "/details").array();
-		} catch (Exception e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
-	private String getMergeReviewUrl(String mergeReviewId) {
-		return this.url + "/merge-reviews/" + mergeReviewId;
-	}
-
-	public void saveConceptMerge(String mergeReviewId, JSONObject mergedConcept) throws TermServerClientException {
-		try {
-			String id = ConceptHelper.getConceptId(mergedConcept);
-			logger.info("Saving merged concept {} for merge review {}", id, mergeReviewId);
-			resty.json(getMergeReviewUrl(mergeReviewId) + "/" + id, RestyHelper.content(mergedConcept, SNOWOWL_CONTENT_TYPE));
-		} catch (JSONException | IOException e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
 	public File export(String branchPath, String effectiveDate, ExportType exportType, ExtractType extractType, File saveLocation)
 			throws TermServerClientException {
-		JSONObject jsonObj = prepareExportJSON(branchPath, effectiveDate, exportType, extractType);
-		logger.info ("Initiating export with {}",jsonObj.toString());
-		String exportLocationURL = initiateExport(jsonObj);
+		JsonObject json = prepareExportJSON(branchPath, effectiveDate, exportType, extractType);
+		logger.info ("Initiating export with {}",json);
+		String exportLocationURL = initiateExport(json);
 		File recoveredArchive = recoverExportedArchive(exportLocationURL, saveLocation);
 		return recoveredArchive;
 	}
 	
-	private JSONObject prepareExportJSON(String branchPath, String effectiveDate, ExportType exportType, ExtractType extractType)
+	private JsonObject prepareExportJSON(String branchPath, String effectiveDate, ExportType exportType, ExtractType extractType)
 			throws TermServerClientException {
-		JSONObject jsonObj = new JSONObject();
+		JsonObject json = new JsonObject();
 		try {
-			jsonObj.put("type", extractType);
-			jsonObj.put("branchPath", branchPath);
+			json.addProperty("type", extractType.toString());
+			json.addProperty("branchPath", branchPath);
 			switch (exportType) {
 				case MIXED:  //Snapshot allows for both published and unpublished, where unpublished
 					//content would get the transient effective Date
@@ -349,45 +310,40 @@ public class TermServerClient {
 						throw new TermServerClientException("Export type " + exportType + " not recognised");
 					}
 					if (supportsIncludeUnpublished) {
-						jsonObj.put("includeUnpublished", true);
+						json.addProperty("includeUnpublished", true);
 					}
 				case UNPUBLISHED:
 					//Now leaving effective date blank if not specified
 					if (effectiveDate != null) {
 						//String tet = (effectiveDate == null) ?YYYYMMDD.format(new Date()) : effectiveDate;
-						jsonObj.put("transientEffectiveTime", effectiveDate);
+						json.addProperty("transientEffectiveTime", effectiveDate);
 					}
 					break;
 				case PUBLISHED:
 					if (effectiveDate == null) {
 						throw new TermServerClientException("Cannot export published data without an effective date");
 					}
-					jsonObj.put("deltaStartEffectiveTime", effectiveDate);
-					jsonObj.put("deltaEndEffectiveTime", effectiveDate);
-					jsonObj.put("transientEffectiveTime", effectiveDate);
+					json.addProperty("deltaStartEffectiveTime", effectiveDate);
+					json.addProperty("deltaEndEffectiveTime", effectiveDate);
+					json.addProperty("transientEffectiveTime", effectiveDate);
 					break;
 				
 				default:
 					throw new TermServerClientException("Export type " + exportType + " not recognised");
 			}
-		} catch (JSONException e) {
+		} catch (RestClientException e) {
 			throw new TermServerClientException("Failed to prepare JSON for export request.", e);
 		}
-		return jsonObj;
+		return json;
 	}
 
-	private String initiateExport(JSONObject jsonObj) throws TermServerClientException {
+	private String initiateExport(JsonObject json) throws TermServerClientException {
 		try {
-			JSONResource jsonResponse = resty.json(url + "/exports", RestyHelper.content(jsonObj, SNOWOWL_CONTENT_TYPE));
-			Object exportLocationURLObj = jsonResponse.getUrlConnection().getHeaderField("Location");
-			if (exportLocationURLObj == null) {
-				throw new TermServerClientException("Failed to obtain location of export:");
-			} else {
-				logger.info ("Recovering export from {}",exportLocationURLObj.toString());
-			}
-			return exportLocationURLObj.toString() + "/archive";
-		} catch (Exception e) {
-			// TODO Change this to catch JSONException once Resty no longer throws Exceptions
+			ResponseEntity<JsonObject> response = restTemplate.getForEntity(url + "/exports", JsonObject.class);
+			String exportLocation = response.getHeaders().getFirst("Location");
+			logger.info ("Recovering export from {}",exportLocation);
+			return exportLocation + "/archive";
+		} catch (RestClientException e) {
 			throw new TermServerClientException("Failed to initiate export", e);
 		}
 	}
@@ -395,12 +351,19 @@ public class TermServerClient {
 	private File recoverExportedArchive(String exportLocationURL, File saveLocation) throws TermServerClientException {
 		try {
 			logger.info("Recovering exported archive from {}", exportLocationURL);
-			resty.withHeader("Accept", ALL_CONTENT_TYPE);
-			BinaryResource archiveResource = resty.bytes(exportLocationURL);
 			if (saveLocation == null) {
 				saveLocation = File.createTempFile("ts-extract", ".zip");
 			}
-			archiveResource.save(saveLocation);
+			RequestCallback requestCallback = request -> request.getHeaders()
+				.setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+			
+			// Streams the response instead of loading it all in memory
+			final Path path = saveLocation.toPath();
+			ResponseExtractor<Void> responseExtractor = response -> {
+				Files.copy(response.getBody(), path);
+				return null;
+			};
+			restTemplate.execute(exportLocationURL, HttpMethod.GET, requestCallback, responseExtractor);
 			logger.debug("Extract saved to {}", saveLocation.getAbsolutePath());
 			return saveLocation;
 		} catch (IOException e) {
@@ -408,43 +371,12 @@ public class TermServerClient {
 		}
 	}
 
-	public JSONResource updateDescription(String descId, JSONObject descObj, String branchPath) throws TermServerClientException {
-		try {
-			Preconditions.checkNotNull(descId);
-			JSONResource response =  resty.json(getDescriptionsPath(branchPath,descId) + "/updates", RestyHelper.content(descObj, SNOWOWL_CONTENT_TYPE));
-			logger.info("Updated description " + descId);
-			return response;
-		} catch (Exception e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
-	public JSONArray getLangRefsetMembers(String descriptionId, String refsetId, String branch) throws TermServerClientException {
-		final String url = this.url + "/" + branch + "/members?referenceSet=" + refsetId + "&referencedComponentId=" + descriptionId;
-		try {
-			return (JSONArray) resty.json(url).get("items");
-		} catch (Exception e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
 	public void deleteRefsetMember(String langRefMemberId, String branch, boolean toForce) throws TermServerClientException {
-		
 		try {
-			resty.json(getRefsetMemberUpdateUrl(langRefMemberId, branch, toForce), Resty.delete());
+			String url = getRefsetMemberUpdateUrl(langRefMemberId, branch, toForce);
+			restTemplate.delete(url);
 			logger.info("deleted refset member id:" + langRefMemberId);
-		} catch (IOException e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
-	public JSONResource updateRefsetMember(JSONObject refsetUpdate, String branch, boolean toForce) throws TermServerClientException {
-		try {
-			final String id = refsetUpdate.getString("id");
-			Preconditions.checkNotNull(id);
-			logger.info("Updating refset member " + id);
-			return resty.json(getRefsetMemberUpdateUrl(id, branch, toForce), Resty.put(RestyHelper.content(refsetUpdate, SNOWOWL_CONTENT_TYPE)));
-		} catch (Exception e) {
+		} catch (RestClientException e) {
 			throw new TermServerClientException(e);
 		}
 	}
@@ -457,21 +389,10 @@ public class TermServerClient {
 		return getRefsetMemberUrl(refSetMemberId, branch) + "?force=" + toForce;
 	}
 
-	public JSONResource getRefsetMemberById(String id, String branch) throws TermServerClientException {
-		try {
-			return resty.json(getRefsetMemberUrl(id, branch));
-		} catch (IOException e) {
-			throw new TermServerClientException(e);
-		}
-	}
-
 	public Refset loadRefsetEntries(String branchPath, String refsetId, String referencedComponentId) throws TermServerClientException {
 		try {
-			String endPoint = this.url + "/" + branchPath + "/members?referenceSet=" + refsetId + "&referencedComponentId=" + referencedComponentId;
-			JSONResource response = resty.json(endPoint);
-			String json = response.toObject().toString();
-			Refset refsetObj = gson.fromJson(json, Refset.class);
-			return refsetObj;
+			String url = this.url + "/" + branchPath + "/members?referenceSet=" + refsetId + "&referencedComponentId=" + referencedComponentId;
+			return restTemplate.getForObject(url, Refset.class);
 		} catch (Exception e) {
 			throw new TermServerClientException("Unable to recover refset for " + refsetId + " - " + referencedComponentId, e);
 		}
@@ -479,14 +400,13 @@ public class TermServerClient {
 
 	public void updateRefsetMember(String branchPath, RefsetEntry refsetEntry, boolean forceUpdate) throws TermServerClientException {
 		try {
-			String endPoint = this.url + "/" + branchPath + "/members/" + refsetEntry.getId();
+			String url = this.url + "/" + branchPath + "/members/" + refsetEntry.getId();
 			if (forceUpdate) {
-				endPoint += "?force=true";
+				url += "?force=true";
 			}
-			String json = gson.toJson(refsetEntry);
-			AbstractContent content = Resty.put(RestyHelper.content(new JSONObject(json), SNOWOWL_CONTENT_TYPE));
-			resty.json(endPoint, content);
-		} catch (Exception e) {
+			HttpEntity<RefsetEntry> requestEntity = new HttpEntity<>(refsetEntry, headers);
+			restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Concept.class);
+		} catch (RestClientException e) {
 			throw new TermServerClientException("Unable to update refset entry " + refsetEntry + " due to " + e.getMessage(), e);
 		}
 	}
@@ -494,13 +414,11 @@ public class TermServerClient {
 
 	public void waitForCompletion(String branchPath, Classification classification) throws TermServerClientException {
 		try {
-			String endPoint = this.url + "/" + branchPath + "/classifications/" + classification.getId();
+			String url = this.url + "/" + branchPath + "/classifications/" + classification.getId();
 			Status status = new Status("Unknown");
 			long sleptSecs = 0;
 			do {
-				JSONResource response = resty.json(endPoint);
-				String json = response.toObject().toString();
-				status = gson.fromJson(json, Status.class);
+				status = restTemplate.getForObject(url, Status.class);
 				if (!status.isFinalState()) {
 					Thread.sleep(retry * 1000);
 					sleptSecs += retry;
@@ -518,6 +436,10 @@ public class TermServerClient {
 		String url = getConceptBrowserValidationPath(branchPath);
 		HttpEntity<Concept> request = new HttpEntity<>(c, headers); 
 		return restTemplate.postForObject(url, request, DroolsResponse[].class);
+	}
+
+	public String getUrl() {
+		return this.url;
 	}
 
 }

@@ -2,14 +2,9 @@ package org.ihtsdo.termserver.scripting.fixes;
 
 import org.ihtsdo.termserver.scripting.TermServerScript;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
-import org.ihtsdo.termserver.scripting.domain.Component;
 import org.ihtsdo.termserver.scripting.domain.Concept;
 import org.ihtsdo.termserver.scripting.domain.RF2Constants;
 
-import us.monoid.json.JSONArray;
-import us.monoid.json.JSONObject;
-
-import java.util.*;
 
 /**
  * Fix script to inactivate the language reference sets of inactive descriptions found in a validation report
@@ -23,6 +18,8 @@ public class LangRefsetInactivationFix extends TermServerScript implements RF2Co
 	}
 		
 	public void fixAll () throws Exception {
+		//TODO Rewrite this (if ever required again) to properly parse the validation report, rather than JSON
+		/*
 		String validationReportUrl = url + "snowowl/ihtsdo-sca/projects/" + project + "/validation";
 		info(validationReportUrl);
 
@@ -55,10 +52,12 @@ public class LangRefsetInactivationFix extends TermServerScript implements RF2Co
 		} else {
 			info("No lang refset failures found in report " + validationReportUrl);
 		}
+		*/
 	}
 
 	public void doFix(Concept concept, String branchPath) throws TermServerScriptException {
-		try{
+		//TODO Rewrite this (if ever required again) using Concept and Description objects, rather than JSON
+		/*try{
 			JSONObject conceptObj = tsClient.getConcept(concept.getConceptId(), branchPath).object();
 			boolean fixed = false;
 			JSONArray descriptions = conceptObj.getJSONArray("descriptions");
@@ -84,18 +83,7 @@ public class LangRefsetInactivationFix extends TermServerScript implements RF2Co
 		}catch (Exception e) {
 			throw new TermServerScriptException("Failed to fix issue", e);
 		}
-		
-	}
-
-	@Override
-	public String getScriptName() {
-		return "LangRefsetInactivationFix";
-	}
-
-	@Override
-	protected List<Component> loadLine(String[] lineItems)
-			throws TermServerScriptException {
-		return null;
+		*/
 	}
 
 }

@@ -3,16 +3,9 @@ package org.ihtsdo.termserver.scripting.fixes;
 import java.io.IOException;
 import java.util.*;
 
-import org.apache.commons.lang.exception.ExceptionUtils;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.client.TermServerClientException;
-import org.ihtsdo.termserver.scripting.domain.Component;
-import org.ihtsdo.termserver.scripting.domain.Concept;
-import org.ihtsdo.termserver.scripting.domain.RF2Constants;
-import org.ihtsdo.termserver.scripting.domain.Relationship;
-import org.ihtsdo.termserver.scripting.domain.Task;
-
-import us.monoid.json.JSONObject;
+import org.ihtsdo.termserver.scripting.domain.*;
 
 /*
 For SUBST-200, DRUGS-448, DRUGS-451, DRUGS-466, DRUGS-484, SUBST-269, SUBST-271
@@ -49,15 +42,7 @@ public class RemoveRedundantParents extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = removeRedundantParents(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

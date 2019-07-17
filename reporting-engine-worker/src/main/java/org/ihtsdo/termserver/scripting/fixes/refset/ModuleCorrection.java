@@ -7,14 +7,13 @@ import java.util.List;
 import org.ihtsdo.termserver.scripting.TermServerScript;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.client.TermServerClientException;
-import org.ihtsdo.termserver.scripting.domain.Component;
 import org.ihtsdo.termserver.scripting.domain.Refset;
 import org.ihtsdo.termserver.scripting.domain.RefsetEntry;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
-public class ModuleCorrection extends TermServerScript/*extends RefsetFixer*/ {
+public class ModuleCorrection extends TermServerScript {
 
 	String wrongModule = "900000000000207008";
 	String rightModule = "554471000005108";  //DK
@@ -75,13 +74,6 @@ public class ModuleCorrection extends TermServerScript/*extends RefsetFixer*/ {
 		//Save
 		tsClient.updateRefsetMember(project.getBranchPath(), refsetEntry, (forceEffectiveTime != null));
 		info ("Fixed " + refsetEntry.getId() + " for " + descId);
-	}
-
-	@Override
-	protected List<Component> loadLine(String[] lineItems)
-			throws TermServerScriptException {
-		// TODO Auto-generated method stub
-		return null;
 	}
 }
 

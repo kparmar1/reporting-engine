@@ -1,20 +1,12 @@
 package org.ihtsdo.termserver.scripting.fixes;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.client.TermServerClientException;
-import org.ihtsdo.termserver.scripting.domain.AssociationTargets;
-import org.ihtsdo.termserver.scripting.domain.Component;
-import org.ihtsdo.termserver.scripting.domain.Concept;
-import org.ihtsdo.termserver.scripting.domain.AssociationEntry;
-import org.ihtsdo.termserver.scripting.domain.RF2Constants;
-import org.ihtsdo.termserver.scripting.domain.Task;
-
-import us.monoid.json.JSONObject;
+import org.ihtsdo.termserver.scripting.domain.*;
 
 /*
  * DRUGS-321, DRUGS-479
@@ -44,15 +36,7 @@ public class InactivateLeafConcepts extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = inactivateConcept(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun?"Dry run updating":"Updating") + " state of " + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}
@@ -92,11 +76,7 @@ public class InactivateLeafConcepts extends BatchFix implements RF2Constants{
 		report(task, incomingConcept, Severity.MEDIUM, ReportActionType.CONCEPT_CHANGE_MADE, "Incoming historical association detached.");
 		
 		try {
-			String conceptSerialised = gson.toJson(incomingConcept);
-			debug ((dryRun?"Dry run updating":"Updating") + " state of incoming associated concept: " + incomingConcept);
-			if (!dryRun) {
-				tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-			}
+			save(task, incomingConcept, null);
 		} catch (Exception e) {
 			report(task, incomingConcept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
 		}

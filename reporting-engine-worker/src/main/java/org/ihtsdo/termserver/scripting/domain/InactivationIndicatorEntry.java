@@ -3,15 +3,8 @@ package org.ihtsdo.termserver.scripting.domain;
 import java.util.UUID;
 
 //id	effectiveTime	active	moduleId	refsetId	referencedComponentId	inactivationReasonId
-public class InactivationIndicatorEntry extends Component implements RF2Constants {
+public class InactivationIndicatorEntry extends RefsetEntry {
 
-	private String id;
-	private String effectiveTime;
-	private String moduleId;
-	private Boolean active;
-	private String refsetId;
-	private String referencedComponentId;
-	private String inactivationReasonId;
 	private boolean dirty = false;
 	private boolean isDeleted = false;
 	private String deletionEffectiveTime;
@@ -23,11 +16,12 @@ public class InactivationIndicatorEntry extends Component implements RF2Constant
 		clone.moduleId = this.moduleId;
 		clone.active = this.active;
 		clone.refsetId = this.refsetId;
-		clone.referencedComponentId = newComponentSctId;
-		clone.inactivationReasonId = this.inactivationReasonId;
+		clone.setReferencedComponentId(newComponentSctId);
+		clone.valueId = this.valueId;
 		clone.dirty = true; //New components need to be written to any delta
 		return clone;
 	}
+
 	private static InactivationIndicatorEntry withDefaults() {
 		InactivationIndicatorEntry i = new InactivationIndicatorEntry();
 		i.setId(UUID.randomUUID().toString());
@@ -54,7 +48,7 @@ public class InactivationIndicatorEntry extends Component implements RF2Constant
 	
 	public String toString() {
 		String activeIndicator = isActive()?"":"*";
-		return "[" + activeIndicator + "IA]:" + id + " - " + refsetId + " : " + referencedComponentId + "->" + inactivationReasonId;
+		return "[" + activeIndicator + "IA]:" + id + " - " + refsetId + " : " + referencedComponent + "->" + getInactivationReasonId();
 	}
 	
 	public String[] toRF2() {
@@ -62,8 +56,8 @@ public class InactivationIndicatorEntry extends Component implements RF2Constant
 				(effectiveTime==null?"":effectiveTime), 
 				(active?"1":"0"),
 				moduleId, refsetId,
-				referencedComponentId,
-				inactivationReasonId
+				referencedComponent.toString(),
+				getInactivationReasonId()
 		};
 	}
 	
@@ -74,8 +68,8 @@ public class InactivationIndicatorEntry extends Component implements RF2Constant
 				(active?"1":"0"),
 				"1",
 				moduleId, refsetId,
-				referencedComponentId,
-				inactivationReasonId
+				referencedComponent.toString(),
+				getInactivationReasonId()
 		};
 	}
 
@@ -117,20 +111,14 @@ public class InactivationIndicatorEntry extends Component implements RF2Constant
 	public void setRefsetId(String refsetId) {
 		this.refsetId = refsetId;
 	}
-	public String getReferencedComponentId() {
-		return referencedComponentId;
-	}
-	public void setReferencedComponentId(String referencedComponentId) {
-		this.referencedComponentId = referencedComponentId;
-	}
 	public String getInactivationReasonId() {
-		return inactivationReasonId;
+		return valueId;
 	}
 	public void setInactivationReasonId(String inactivationReasonId) {
-		if (this.inactivationReasonId != null && !this.inactivationReasonId.equals(inactivationReasonId)) {
+		if (getInactivationReasonId() != null && !this.getInactivationReasonId().equals(inactivationReasonId)) {
 			dirty = true;
 		}
-		this.inactivationReasonId = inactivationReasonId;
+		setValueId(inactivationReasonId);
 	}
 
 	public boolean isDirty() {

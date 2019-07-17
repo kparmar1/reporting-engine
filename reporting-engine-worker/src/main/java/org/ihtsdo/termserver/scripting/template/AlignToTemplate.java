@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 
-import org.apache.commons.lang.exception.ExceptionUtils;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.ValidationFailure;
 import org.snomed.authoringtemplate.domain.logical.*;
@@ -12,15 +11,11 @@ import org.ihtsdo.termserver.scripting.client.TermServerClientException;
 import org.ihtsdo.termserver.scripting.domain.*;
 import org.ihtsdo.termserver.scripting.fixes.BatchFix;
 
-import us.monoid.json.JSONObject;
-
 /**
  * QI-6 Force a concept to align to a template
- * @author Peter
  *
  */
 public class AlignToTemplate extends TemplateFix {
-	
 
 	protected AlignToTemplate(BatchFix clone) {
 		super(clone);
@@ -56,15 +51,7 @@ public class AlignToTemplate extends TemplateFix {
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = alignConceptToTemplate(task, loadedConcept);
 		if (changesMade > 0) {
-			try {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun ?"Dry run ":"Updating state of ") + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			} catch (Exception e) {
-				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
-			}
+			save(task, loadedConcept, info);
 		}
 		return 0;
 	}

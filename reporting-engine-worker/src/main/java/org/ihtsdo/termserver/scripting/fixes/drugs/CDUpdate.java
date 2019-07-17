@@ -50,21 +50,11 @@ public class CDUpdate extends DrugBatchFix implements RF2Constants {
 	@Override
 	public int doFix(Task task, Concept concept, String info) throws TermServerScriptException, ValidationFailure {
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
-		try {
-			int changesMade = remodelConcept(task, loadedConcept);
-			if (changesMade > 0) {
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun?"Dry run updating":"Updating") + " state of " + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			}
-			return changesMade;
-		} catch (Exception e) {
-			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to remodel " + concept + " due to " + e.getClass().getSimpleName()  + " - " + e.getMessage());
-			e.printStackTrace();
+		int changesMade = remodelConcept(task, loadedConcept);
+		if (changesMade > 0) {
+			save(task, loadedConcept, info);
 		}
-		return 0;
+		return changesMade;
 	}
 
 	private int remodelConcept(Task t, Concept c) throws TermServerScriptException, ValidationFailure {

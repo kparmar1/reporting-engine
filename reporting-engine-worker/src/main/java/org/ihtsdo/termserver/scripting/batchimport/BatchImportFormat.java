@@ -191,8 +191,14 @@ public class BatchImportFormat implements RF2Constants {
 		Description d = Description.withDefaults(termStr,  DescriptionType.SYNONYM);
 		Acceptability usAccept = SnomedUtils.translateAcceptability(usAcceptStr);
 		Acceptability gbAccept = SnomedUtils.translateAcceptability(gbAcceptStr);
-		d.getAcceptabilityMap().put(US_ENG_LANG_REFSET, usAccept);
-		d.getAcceptabilityMap().put(GB_ENG_LANG_REFSET, gbAccept);
+		
+		if (!usAccept.equals(Acceptability.NONE)) {
+			d.getAcceptabilityMap().put(US_ENG_LANG_REFSET, usAccept);
+		}
+		
+		if (!gbAccept.equals(Acceptability.NONE)) {
+			d.getAcceptabilityMap().put(GB_ENG_LANG_REFSET, gbAccept);
+		}
 		return d;
 	}
 

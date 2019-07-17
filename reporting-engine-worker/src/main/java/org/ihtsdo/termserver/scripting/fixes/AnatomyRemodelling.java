@@ -49,29 +49,14 @@ public class AnatomyRemodelling extends BatchFix implements RF2Constants{
 
 	@Override
 	public int doFix(Task task, Concept concept, String info) throws TermServerScriptException, ValidationFailure {
-		Concept tsConcept = loadConcept(concept, task.getBranchPath());
+		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = 0;
-		if (tsConcept.isActive() == false) {
+		if (loadedConcept.isActive() == false) {
 			report(task, concept, Severity.HIGH, ReportActionType.VALIDATION_ERROR, "Concept is inactive.  No changes attempted");
 		} else {
-			changesMade = remodelRelationships(task, concept, tsConcept, false);
+			changesMade = remodelRelationships(task, concept, loadedConcept, false);
 			if (changesMade > 0) {
-				try {
-					String conceptSerialised = gson.toJson(tsConcept);
-					debug ((dryRun?"Dry run updating":"Updating") + " state of " + tsConcept + info);
-					if (!dryRun) {
-						tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-					}
-					//report(task, concept, Severity.LOW, ReportActionType.CONCEPT_CHANGE_MADE, "Concept successfully remodelled. " + changesMade + " changes made.");
-				} catch (Exception e) {
-					//See if we can get that 2nd level exception's reason which says what the problem actually was
-					String additionalInfo = "";
-					if (e.getCause().getCause() != null) {
-						additionalInfo = " - " + e.getCause().getCause().getMessage().replaceAll(COMMA, " ").replaceAll(QUOTE, "'");
-					} 
-					report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + e.getClass().getSimpleName()  + " - " + additionalInfo);
-					e.printStackTrace();
-				}
+				save(task, loadedConcept, info);
 			}
 		}
 		return changesMade;

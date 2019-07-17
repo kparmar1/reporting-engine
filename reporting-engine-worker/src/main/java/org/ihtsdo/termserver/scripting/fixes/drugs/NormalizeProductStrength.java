@@ -59,22 +59,12 @@ public class NormalizeProductStrength extends DrugBatchFix implements RF2Constan
 	@Override
 	public int doFix(Task task, Concept concept, String info) throws TermServerScriptException, ValidationFailure {
 		Concept loadedConcept = loadConcept(concept, task.getBranchPath());
-		try {
-			int changesMade = normalizeProductStrength(task, loadedConcept);
-			if (changesMade > 0) {
-				changesMade += termGenerator.ensureTermsConform(task, loadedConcept, CharacteristicType.STATED_RELATIONSHIP);
-				String conceptSerialised = gson.toJson(loadedConcept);
-				debug ((dryRun?"Dry run updating":"Updating") + " state of " + loadedConcept + info);
-				if (!dryRun) {
-					tsClient.updateConcept(new JSONObject(conceptSerialised), task.getBranchPath());
-				}
-			}
-			return changesMade;
-		} catch (Exception e) {
-			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to remodel " + concept + " due to " + e.getClass().getSimpleName()  + " - " + e.getMessage());
-			e.printStackTrace();
+		int changesMade = normalizeProductStrength(task, loadedConcept);
+		if (changesMade > 0) {
+			changesMade += termGenerator.ensureTermsConform(task, loadedConcept, CharacteristicType.STATED_RELATIONSHIP);
+			save(task, loadedConcept, info);
 		}
-		return 0;
+		return changesMade;
 	}
 	
 	private int normalizeProductStrength(Task t, Concept c) throws TermServerScriptException, ValidationFailure {
