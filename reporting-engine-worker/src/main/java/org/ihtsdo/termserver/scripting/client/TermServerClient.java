@@ -116,29 +116,34 @@ public class TermServerClient {
 		}
 	}
 
-	public Concept updateConcept(Concept concept, String branchPath) throws TermServerClientException {
+	public Concept updateConcept(Concept c, String branchPath) throws TermServerClientException {
 		HttpEntity<Concept> response = null;
+		Concept updatedConcept = null;
 		try {
-			final String id = concept.getConceptId();
-			Preconditions.checkNotNull(id);
+			Preconditions.checkNotNull(c.getConceptId());
+			String url = getConceptBrowserPath(branchPath) + "/" +  c.getConceptId();
 			boolean updatedOK = false;
 			int tries = 0;
 			while (!updatedOK) {
 				try {
-					HttpEntity<Concept> requestEntity = new HttpEntity<>(concept, headers);
+					HttpEntity<Concept> requestEntity = new HttpEntity<>(c, headers);
 					response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Concept.class);
 					updatedOK = true;
-					logger.info("Updated concept " + id);
+					logger.info("Updated concept " + c);
+					updatedConcept = response.getBody();
+					if (updatedConcept == null) {
+						throw new TermServerClientException ("Received unexpected: " + response.toString());
+					}
 				} catch (Exception e) {
 					tries++;
 					if (tries >= MAX_TRIES) {
-						throw new TermServerClientException("Failed to update concept " + id + " after " + tries + " attempts due to " + e.getMessage() + "\nJSON representation: " + concept.toString(), e);
+						throw new TermServerClientException("Failed to update concept " + c + " after " + tries + " attempts due to " + e.getMessage(), e);
 					}
 					logger.debug("Update of concept failed, trying again....",e);
 					Thread.sleep(30*1000); //Give the server 30 seconds to recover
 				}
 			}
-			return response.getBody();
+			return updatedConcept;
 		} catch (Exception e) {
 			throw new TermServerClientException(e);
 		}
