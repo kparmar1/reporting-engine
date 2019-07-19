@@ -74,7 +74,7 @@ public class QI138_IncisionalHerniaRemodel extends BatchFix {
 			Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 			changesMade = remodel(task, loadedConcept);
 			if (changesMade > 0) {
-				updateConcept(task, loadedConcept, info);
+				save(task, loadedConcept, info);
 			}
 		} catch (ValidationFailure v) {
 			report(task, concept, v);

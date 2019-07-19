@@ -53,7 +53,7 @@ public class MQI5_SwitchAssocMorp extends BatchFix {
 		try {
 			Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 			changesMade = switchValues(task, loadedConcept);
-			updateConcept(task, loadedConcept, info);
+			save(task, loadedConcept, info);
 		} catch (ValidationFailure v) {
 			report(task, concept, v);
 		} catch (Exception e) {

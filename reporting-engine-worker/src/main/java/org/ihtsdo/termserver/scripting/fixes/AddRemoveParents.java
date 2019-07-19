@@ -46,7 +46,7 @@ public class AddRemoveParents extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(concept, t.getBranchPath());
 		changesMade = addRemoveParents(t, loadedConcept);
 		if (changesMade > 0) {
-			updateConcept(t, loadedConcept, info);
+			save(t, loadedConcept, info);
 		}
 		return changesMade;
 	}

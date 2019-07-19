@@ -275,7 +275,7 @@ public class NormaliseTemplateCompliantConcepts extends TemplateFix {
 		changesMade += normaliseConceptToTemplate(task, loadedConcept, conceptToTemplateMap.get(concept));
 		changesMade += removeRedundandGroups(task, loadedConcept);
 		if (changesMade > 0) {
-			updateConcept(task, loadedConcept, info);
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

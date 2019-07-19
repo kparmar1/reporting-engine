@@ -536,7 +536,7 @@ public abstract class TermServerScript implements RF2Constants {
 		}
 	}
 	
-	protected Concept updateConcept(Task t, Concept c, String info) throws TermServerScriptException {
+	protected Concept save(Task t, Concept c, String info) throws TermServerScriptException {
 		String conceptSerialised = "PARSE FAILURE";
 		try {
 			boolean updatedOK = false;
@@ -578,7 +578,6 @@ public abstract class TermServerScript implements RF2Constants {
 	private void validateConcept(Task t, Concept c) throws TermServerScriptException {
 		//We need to populate new components with UUIDs for validation
 		Concept uuidClone = c.cloneWithUUIDs();
-		if (true);
 		DroolsResponse[] validations = tsClient.validateConcept(uuidClone, t.getBranchPath());
 		if (validations.length == 0) {
 			debug("Validation clear: " + c);
@@ -629,6 +628,13 @@ public abstract class TermServerScript implements RF2Constants {
 		if (c.getFsn() == null || c.getFsn().isEmpty()) {
 			throw new ValidationFailure(c, "Cannot create concept with no FSN");
 		}
+		
+		if (!dryRun) {
+			if (validateConceptOnUpdate) {
+				validateConcept(t, c);
+			}
+		}
+		
 		int attempt = 0;
 		while (true) {
 			try {
@@ -668,17 +674,6 @@ public abstract class TermServerScript implements RF2Constants {
 		return newConcept;
 	}
 
-	/**
-	 * Creates a set of concepts based on a structure around the initial concept 
-	 * ie parents as high as is required, siblings and children.
-	 * @param initialConcept
-	 * @return a list of the new concepts created.
-	 */
-	protected List<Concept> createConceptStructure(Concept initialConcept) {
-		List<Concept> created = new ArrayList<>();
-		return created;
-	}
-	
 	protected int deleteConcept(Task t, Concept c) throws TermServerScriptException {
 		try {
 			debug ((dryRun ?"Dry run deleting ":"Deleting ") + c );

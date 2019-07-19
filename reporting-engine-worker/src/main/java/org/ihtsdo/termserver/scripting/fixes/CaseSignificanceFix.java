@@ -67,7 +67,7 @@ public class CaseSignificanceFix extends BatchFix implements RF2Constants{
 		//int changesMade = fixGreekLetterIssues(task, loadedConcept);
 		int changesMade = fixSingleLetterIssues(task, loadedConcept);
 		if (changesMade > 0) {
-			updateConcept(task, loadedConcept, info);
+			save(task, loadedConcept, info);
 		}
 		return changesMade;
 	}

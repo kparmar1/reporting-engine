@@ -56,7 +56,7 @@ public class ReplaceRelationship extends BatchFix implements RF2Constants{
 		Concept loadedConcept = loadConcept(c, t.getBranchPath());
 		int changesMade = replaceTargetRelationship(t, loadedConcept);
 		if (changesMade > 0) {
-			updateConcept(t, loadedConcept, info);
+			save(t, loadedConcept, info);
 		}
 		return changesMade;
 	}

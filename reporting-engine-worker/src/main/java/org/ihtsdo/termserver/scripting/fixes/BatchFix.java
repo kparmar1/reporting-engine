@@ -660,7 +660,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		}
 	}
 	
-	protected void save (Task task, Concept concept, String info) throws TermServerScriptException {
+/*	protected void save (Task task, Concept concept, String info) throws TermServerScriptException {
 		try {
 			debug ((dryRun?"Dry run updating":"Updating") + " state of " + concept + info);
 			if (!dryRun) {
@@ -669,7 +669,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		} catch (Exception e) {
 			report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
 		}
-	}
+	}*/
 	
 	protected int removeRelationship(Task t, Concept c, Relationship r) throws TermServerScriptException {
 		return removeRelationship(t, c, r, "");
@@ -1009,7 +1009,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 			Concept loadedChild = loadConcept(child.getConceptId(), t.getBranchPath());
 			int changesMade = replaceParent(t, loadedChild, original, savedConcept);
 			if (changesMade > 0) {
-				updateConcept(t, loadedChild, "");
+				save(t, loadedChild, "");
 				report (t, child, Severity.HIGH, ReportActionType.RELATIONSHIP_REPLACED, "New Parent: " + savedConcept);
 				//Add the child to the task, after the original
 				t.addAfter(child, original);
@@ -1041,7 +1041,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		
 		checkAndReplaceHistoricalAssociations(t, original, savedConcept, inactivationIndicator);
 		report(t, original, Severity.LOW, ReportActionType.CONCEPT_INACTIVATED);
-		updateConcept(t, original, "");
+		save(t, original, "");
 	}
 	
 	protected void checkAndReplaceHistoricalAssociations(Task t, Concept inactivateMe, Concept replacing, InactivationIndicator inactivationIndicator) throws TermServerScriptException {
@@ -1077,7 +1077,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		} else {
 			report (t, source, Severity.HIGH, ReportActionType.ASSOCIATION_REMOVED, "No longer associated with " + target, "Remaining : " + targets.toString());
 		}
-		updateConcept(t, source, null);
+		save(t, source, null);
 		t.addBefore(sourceCached, target);
 	}
 
@@ -1128,7 +1128,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 			default: 
 				throw new TermServerScriptException("Unexpected inactivation indicator: " + inactivationIndicator);
 		}
-		updateConcept(t, loadedConcept, " with re-jigged inactivation indicator and historical associations");
+		save(t, loadedConcept, " with re-jigged inactivation indicator and historical associations");
 		report (t, loadedConcept, Severity.HIGH, ReportActionType.ASSOCIATION_ADDED, "InactReason set to " + inactivationIndicator + " and " + histAssocStr + replacement);
 	}
 	

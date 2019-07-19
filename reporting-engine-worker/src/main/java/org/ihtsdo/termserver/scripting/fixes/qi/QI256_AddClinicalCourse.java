@@ -68,7 +68,7 @@ public class QI256_AddClinicalCourse extends BatchFix {
 			Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 			changesMade = addClinicalCourse(task, loadedConcept);
 			if (changesMade > 0) {
-				updateConcept(task, loadedConcept, info);
+				save(task, loadedConcept, info);
 			}
 		} catch (ValidationFailure v) {
 			report(task, concept, v);

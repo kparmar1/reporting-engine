@@ -50,7 +50,7 @@ public class NormalizeTerms extends BatchFix implements RF2Constants{
 		if (changesMade > 0) {
 			//Keep the PT on the concept in line with the description list
 			loadedConcept.setPreferredSynonym(loadedConcept.getPreferredSynonym(US_ENG_LANG_REFSET).getTerm());
-			updateConcept(t, loadedConcept, info);
+			save(t, loadedConcept, info);
 		}
 		return changesMade;
 	}

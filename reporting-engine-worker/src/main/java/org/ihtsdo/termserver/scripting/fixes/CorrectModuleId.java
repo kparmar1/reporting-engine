@@ -45,7 +45,7 @@ public class CorrectModuleId extends BatchFix implements RF2Constants{
 			Concept loadedConcept = loadConcept(concept, task.getBranchPath());
 			changesMade = fixModuleId(task, loadedConcept);
 			if (changesMade > 0) {
-				updateConcept(task, loadedConcept, info);
+				save(task, loadedConcept, info);
 			}
 		} catch (TermServerScriptException e) {
 			throw new TermServerScriptException ("Failed to remove duplicate inactivation indicator on " + concept, e);

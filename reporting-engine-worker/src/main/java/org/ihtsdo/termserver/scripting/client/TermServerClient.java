@@ -112,7 +112,7 @@ public class TermServerClient {
 			logger.info("Created concept " + newConcept);
 			return newConcept;
 		} catch (Exception e) {
-			throw new TermServerClientException(e);
+			throw new TermServerClientException("Failed to create concept: " + gson.toJson(concept), e);
 		}
 	}
 

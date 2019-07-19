@@ -40,7 +40,7 @@ public class HistoricalHistoricalIssues extends BatchFix implements RF2Constants
 		int changesMade = fixHistoricalIssues(task, loadedConcept);
 		if (changesMade > 0) {
 			try {
-				updateConcept(task, loadedConcept, "");
+				save(task, loadedConcept, "");
 			} catch (Exception e) {
 				report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
 			}

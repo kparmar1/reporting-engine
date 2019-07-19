@@ -45,7 +45,7 @@ public class MissingInactivationIndicatorsFix extends BatchFix implements RF2Con
 		} else {
 			changesMade = fixInactivationIndicator(task, tsConcept);
 			if (changesMade > 0) {
-				updateConcept(task, tsConcept, info);
+				save(task, tsConcept, info);
 			}
 		}
 		return changesMade;

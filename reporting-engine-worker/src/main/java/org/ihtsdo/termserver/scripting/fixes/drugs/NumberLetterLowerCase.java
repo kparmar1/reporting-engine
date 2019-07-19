@@ -51,7 +51,7 @@ public class NumberLetterLowerCase extends DrugBatchFix implements RF2Constants{
 		try {
 			int changes = normaliseCase(task, loadedConcept);
 			if (changes > 0) {
-				updateConcept(task, loadedConcept, info);
+				save(task, loadedConcept, info);
 			}
 			return changes;
 		} catch (Exception e) {

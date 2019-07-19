@@ -42,7 +42,7 @@ public class IngredientCounts extends DrugBatchFix implements RF2Constants{
 		try {
 			int changes = assignIngredientCounts(task, loadedConcept, CharacteristicType.INFERRED_RELATIONSHIP);
 			if (changes > 0) {
-				updateConcept(task, loadedConcept, info);
+				save(task, loadedConcept, info);
 			}
 			return changes;
 		} catch (Exception e) {

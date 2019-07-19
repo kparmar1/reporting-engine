@@ -69,7 +69,7 @@ public class SwitchAttributeInGroup extends BatchFix {
 		Concept loadedConcept = loadConcept(concept, t.getBranchPath());
 		int changesMade = switchValues(t, loadedConcept, false);
 		if (changesMade > 0) {
-			updateConcept(t, loadedConcept, info);
+			save(t, loadedConcept, info);
 		}
 		return changesMade;
 	}

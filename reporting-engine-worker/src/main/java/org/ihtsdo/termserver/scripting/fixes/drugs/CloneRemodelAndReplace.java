@@ -93,7 +93,7 @@ public class CloneRemodelAndReplace extends BatchFix implements RF2Constants{
 			changesMade = cloneRemodelAndReplace(task, loadedConcept);
 			if (changesMade > 0) {
 				try {
-					updateConcept(task, loadedConcept, info);
+					save(task, loadedConcept, info);
 				} catch (Exception e) {
 					report(task, concept, Severity.CRITICAL, ReportActionType.API_ERROR, "Failed to save changed concept to TS: " + ExceptionUtils.getStackTrace(e));
 				}

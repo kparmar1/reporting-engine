@@ -41,7 +41,7 @@ public class DuplicateRelationships extends BatchFix implements RF2Constants{
 		Concept tsConcept = loadConcept(concept, task.getBranchPath());
 		int changesMade = removeRedundantRelationships(task, tsConcept);
 		if (changesMade > 0) {
-			updateConcept(task, tsConcept, info);
+			save(task, tsConcept, info);
 		}
 		return changesMade;
 	}
