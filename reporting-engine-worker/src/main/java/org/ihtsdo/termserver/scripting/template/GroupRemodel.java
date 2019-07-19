@@ -166,10 +166,15 @@ public class GroupRemodel extends TemplateFix {
 		
 		subHierarchyECL = "< 233776003 |Tracheobronchial disorder|"; //QI-266
 		templateNames = new String[] {	"templates/Tracheobronchial.json" };
-		*/
 		
 		subHierarchyECL = "<< 417893002|Deformity|"; //QI-278
 		templateNames = new String[] {	"templates/Deformity - disorder.json"};
+		exclusionWords.add("(finding)");
+		
+		*/
+		subHierarchyECL = "<< 417893002|Deformity|"; //QI-278
+		templateNames = new String[] {	"templates/Deformity - finding.json"};
+		exclusionWords.add("(disorder)");
 		
 		super.init(args);
 		
