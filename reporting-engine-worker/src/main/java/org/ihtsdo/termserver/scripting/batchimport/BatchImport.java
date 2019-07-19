@@ -35,7 +35,9 @@ public class BatchImport extends BatchFix implements RF2Constants{
 
 	@Override
 	public int doFix(Task t, Concept c, String info) throws TermServerScriptException, ValidationFailure {
-		createConcept(t, c, info);
+		Concept newConcept = createConcept(t, c, info);
+		//Replace the concept in the task so we have the new SCTID to display
+		t.replace(c, newConcept);
 		return CHANGE_MADE;
 	}
 

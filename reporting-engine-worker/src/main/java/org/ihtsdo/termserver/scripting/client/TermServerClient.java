@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -53,8 +54,8 @@ public class TermServerClient {
 	private final RestTemplate restTemplate;
 	private final HttpHeaders headers;
 	private final String url;
-	//private static final String ALL_CONTENT_TYPE = "*/*";
-	private static final String SNOWOWL_CONTENT_TYPE = "application/json";
+	private static final String ALL_CONTENT_TYPE = "*/*";
+	//private static final String SNOWOWL_CONTENT_TYPE = "application/json";
 	private final Set<SnowOwlClientEventListener> eventListeners;
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	public static boolean supportsIncludeUnpublished = true;
@@ -65,7 +66,7 @@ public class TermServerClient {
 		
 		headers = new HttpHeaders();
 		headers.add("Cookie", cookie);
-		headers.add("Accept", SNOWOWL_CONTENT_TYPE);
+		headers.add("Accept", ALL_CONTENT_TYPE);
 		
 		restTemplate = new RestTemplateBuilder()
 				.rootUri(this.url)
@@ -339,8 +340,8 @@ public class TermServerClient {
 
 	private String initiateExport(JsonObject json) throws TermServerClientException {
 		try {
-			ResponseEntity<JsonObject> response = restTemplate.getForEntity(url + "/exports", JsonObject.class);
-			String exportLocation = response.getHeaders().getFirst("Location");
+			HttpEntity<JsonObject> request = new HttpEntity<>(json, headers);
+			String exportLocation = restTemplate.postForLocation(url + "/exports", request).toString();
 			logger.info ("Recovering export from {}",exportLocation);
 			return exportLocation + "/archive";
 		} catch (RestClientException e) {
@@ -360,7 +361,7 @@ public class TermServerClient {
 			// Streams the response instead of loading it all in memory
 			final Path path = saveLocation.toPath();
 			ResponseExtractor<Void> responseExtractor = response -> {
-				Files.copy(response.getBody(), path);
+				Files.copy(response.getBody(), path, StandardCopyOption.REPLACE_EXISTING);
 				return null;
 			};
 			restTemplate.execute(exportLocationURL, HttpMethod.GET, requestCallback, responseExtractor);
