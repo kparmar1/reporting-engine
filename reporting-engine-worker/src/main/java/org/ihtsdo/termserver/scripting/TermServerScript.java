@@ -638,16 +638,23 @@ public abstract class TermServerScript implements RF2Constants {
 		int attempt = 0;
 		while (true) {
 			try {
-				//Copy across the concept type to the returned object - it isn't known to the TS
-				ConceptType conceptType = c.getConceptType();
-				Concept createdConcept = attemptConceptCreation(t,c,info);
-				createdConcept.setConceptType(conceptType);
+				Concept createdConcept;
+				debug ((dryRun ?"Dry run creating ":"Creating ") + c + info);
+				if (!dryRun) {
+					//Copy across the concept type to the returned object - it isn't known to the TS
+					ConceptType conceptType = c.getConceptType();
+					createdConcept = tsClient.createConcept(c, t.getBranchPath(), attempt > 2);
+					createdConcept.setConceptType(conceptType);
+				} else {
+					createdConcept = c.clone("NEW_SCTID");
+				}
+				incrementSummaryInformation("Concepts created");
 				report (t, createdConcept, Severity.LOW, ReportActionType.CONCEPT_ADDED);
 				return createdConcept;
 			} catch (Exception e) {
 				attempt++;
-				String msg = "Failed to create " + c + " in TS due to " + e.getMessage();
-				if (attempt < 2) {
+				String msg = "Failed to create " + c + " (attempt:" + attempt + ") in TS due to " + e.getMessage();
+				if (attempt <= 2) {
 					incrementSummaryInformation("Concepts creation exceptions");
 					warn (msg + " retrying...");
 					try {
@@ -662,18 +669,6 @@ public abstract class TermServerScript implements RF2Constants {
 		}
 	}
 	
-	private Concept attemptConceptCreation(Task t, Concept c, String info) throws Exception {
-		debug ((dryRun ?"Dry run creating ":"Creating ") + c + info);
-		Concept newConcept;
-		if (!dryRun) {
-			newConcept = tsClient.createConcept(c, t.getBranchPath());
-		} else {
-			newConcept = c.clone("NEW_SCTID");
-		}
-		incrementSummaryInformation("Concepts created");
-		return newConcept;
-	}
-
 	protected int deleteConcept(Task t, Concept c) throws TermServerScriptException {
 		try {
 			debug ((dryRun ?"Dry run deleting ":"Deleting ") + c );

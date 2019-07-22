@@ -54,6 +54,9 @@ public class Task {
 		}
 		for (Component component : components) {
 			html.append("<h5>").append(component).append("</h5>\n");
+			if (component.getIssues() != null && !component.getIssues().isEmpty()) {
+				html.append("<h6>").append("&nbsp;&nbsp - ").append(component.getIssues()).append("</h6>\n");
+			}
 		}
 		return html.toString();
 	}

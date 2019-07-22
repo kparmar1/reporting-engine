@@ -1099,6 +1099,7 @@ public class Concept extends Component implements RF2Constants, Comparable<Conce
 		clone.setDefinitionStatus(getDefinitionStatus());
 		clone.setModuleId(getModuleId());
 		clone.setConceptType(conceptType);
+		clone.addIssue(getIssues());
 		clone.setInactivationIndicator(inactivationIndicator);
 		if (populateUUIDs && clone.getId() == null) {
 			clone.setConceptId(UUID.randomUUID().toString());
@@ -1208,22 +1209,31 @@ public class Concept extends Component implements RF2Constants, Comparable<Conce
 		if (availableForReuse == null) {
 			availableForReuse = new ArrayList<>();
 		}
-		for (Relationship r : group.getRelationships()) {
-			//Do we have one of these relationships available to be reused?
-			for (Relationship reuseMe : new ArrayList<>(availableForReuse)) {
-				if (reuseMe.getType().equals(r.getType()) && reuseMe.getTarget().equals(r.getTarget())) {
-					//Check we actually need this relationship before reusing
-					if (getRelationships(r, ActiveState.ACTIVE).size() == 0) { 
-						System.out.println("** Reusing: " + reuseMe + " in group " + r.getGroupId());
-						availableForReuse.remove(reuseMe);
-						reuseMe.setGroupId(r.getGroupId());
-						reuseMe.setActive(true);
-						r = reuseMe;
-					}
-					break;
-				}
-			}
+		
+		//Until we shift to working with axioms, we are not to create any single attribute groups
+		if (group.size() == 1) {
+			Relationship r = group.getRelationships().get(0);
+			TermServerScript.warn("Attempt to create single attribute group in " + this  + ": " + r + " making ungrouped");
+			r.setGroupId(UNGROUPED);
 			changesMade += addOrReactivateRelationship(r);
+		} else {
+			for (Relationship r : group.getRelationships()) {
+				//Do we have one of these relationships available to be reused?
+				for (Relationship reuseMe : new ArrayList<>(availableForReuse)) {
+					if (reuseMe.getType().equals(r.getType()) && reuseMe.getTarget().equals(r.getTarget())) {
+						//Check we actually need this relationship before reusing
+						if (getRelationships(r, ActiveState.ACTIVE).size() == 0) { 
+							System.out.println("** Reusing: " + reuseMe + " in group " + r.getGroupId());
+							availableForReuse.remove(reuseMe);
+							reuseMe.setGroupId(r.getGroupId());
+							reuseMe.setActive(true);
+							r = reuseMe;
+						}
+						break;
+					}
+				}
+				changesMade += addOrReactivateRelationship(r);
+			}
 		}
 		recalculateGroups();
 		return changesMade;

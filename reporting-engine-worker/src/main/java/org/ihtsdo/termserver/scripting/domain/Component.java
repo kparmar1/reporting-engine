@@ -1,5 +1,7 @@
 package org.ihtsdo.termserver.scripting.domain;
 
+import java.util.Collection;
+
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.domain.RF2Constants.ComponentType;
 
@@ -30,6 +32,12 @@ public abstract class Component {
 				this.issues += ", ";
 			}
 			this.issues += issue;
+		}
+	}
+	
+	public void addAllIssues(Collection<? extends Object> issues) {
+		for (Object issue : issues) {
+			addIssue(issue.toString());
 		}
 	}
 	

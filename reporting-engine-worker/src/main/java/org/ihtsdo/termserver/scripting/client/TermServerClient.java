@@ -105,14 +105,14 @@ public class TermServerClient {
 		return e;
 	}
 
-	public Concept createConcept(Concept concept, String branchPath) throws TermServerClientException {
+	public Concept createConcept(Concept concept, String branchPath, boolean fullDiagnostic) throws TermServerClientException {
 		try {
 			HttpEntity<Concept> requestEntity = new HttpEntity<>(concept, headers);
 			Concept newConcept = restTemplate.postForObject(getConceptBrowserPath(branchPath), requestEntity, Concept.class);
 			logger.info("Created concept " + newConcept);
 			return newConcept;
 		} catch (Exception e) {
-			throw new TermServerClientException("Failed to create concept: " + gson.toJson(concept), e);
+			throw new TermServerClientException("Failed to create concept: " + (fullDiagnostic?gson.toJson(concept):concept.getFsn()) + " due to " + e.getMessage(), e);
 		}
 	}
 

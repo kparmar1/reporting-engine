@@ -170,12 +170,15 @@ public class BatchImportFormat implements RF2Constants {
 
 	private Concept createConcept(String sctid, CSVRecord row, String expressionStr) throws TermServerScriptException {
 		Concept c = new Concept(sctid);
+		c.setModuleId(SCTID_CORE_MODULE);
+		c.addAllIssues(getAllNotes(c, row));
 		String fsnStr = row.get(getIndex(FIELD.FSN));
 		Description fsn = Description.withDefaults(fsnStr, DescriptionType.FSN, Acceptability.PREFERRED);
 		c.addDescription(fsn);
 		
 		GraphLoader gl = GraphLoader.getGraphLoader();
 		BatchImportExpression expression = BatchImportExpression.parse(expressionStr, SCTID_MODEL_MODULE);
+		c.setDefinitionStatus(expression.getDefinitionStatus());
 		for (String parentStr : expression.getFocusConcepts()) {
 			Relationship parentRel = new Relationship (c, IS_A, gl.getConcept(parentStr), UNGROUPED);
 			c.addRelationship(parentRel);
@@ -202,21 +205,21 @@ public class BatchImportFormat implements RF2Constants {
 		return d;
 	}
 
-/*	public List<String> getAllNotes(Concept thisConcept) throws TermServerScriptException {
+	public List<String> getAllNotes(Concept c, CSVRecord row) throws TermServerScriptException {
 		List<String> notes = new ArrayList<>();
 		for (int notesField : notesFields) {
 			try {
-				String thisNote = thisConcept.getRow().get(notesField);
+				String thisNote = row.get(notesField);
 				if (thisNote != null && thisNote.trim().length() > 0) {
 					notes.add(thisNote);
 				}
 			} catch (Exception e) {
-				LOGGER.error("Failed to recover note at field {} for concept {}", notesField, thisConcept.getSctid(), e);
+				LOGGER.error("Failed to recover note at field {} for concept {}", notesField, c, e);
 			}
 		}
 		return notes;
 	}
-	
+/*	
 	public List<String> getAllSynonyms(Concept thisConcept) throws TermServerScriptException {
 		List<String> synList = new ArrayList<>();
 		for (int synonymField : synonymFields) {
