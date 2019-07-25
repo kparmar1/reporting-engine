@@ -176,6 +176,7 @@ public class BatchImportFormat implements RF2Constants {
 		String fsnStr = row.get(getIndex(FIELD.FSN));
 		Description fsn = Description.withDefaults(fsnStr, DescriptionType.FSN, Acceptability.PREFERRED);
 		c.addDescription(fsn);
+		setCaseSignificance(fsn);
 		
 		GraphLoader gl = GraphLoader.getGraphLoader();
 		BatchImportExpression expression = BatchImportExpression.parse(expressionStr, SCTID_MODEL_MODULE);
@@ -204,13 +205,16 @@ public class BatchImportFormat implements RF2Constants {
 			d.getAcceptabilityMap().put(GB_ENG_LANG_REFSET, gbAccept);
 		}
 		
-		if (StringUtils.initialLetterLowerCase(termStr)) {
+		setCaseSignificance(d);
+		return d;
+	}
+
+	private void setCaseSignificance(Description d) {
+		if (StringUtils.initialLetterLowerCase(d.getTerm())) {
 			d.setCaseSignificance(CaseSignificance.ENTIRE_TERM_CASE_SENSITIVE);
-		} if (StringUtils.isCaseSensitive(termStr)) {
+		} else if (StringUtils.isCaseSensitive(d.getTerm())) {
 			d.setCaseSignificance(CaseSignificance.INITIAL_CHARACTER_CASE_INSENSITIVE);
 		}
-		
-		return d;
 	}
 
 	public List<String> getAllNotes(Concept c, CSVRecord row) throws TermServerScriptException {
