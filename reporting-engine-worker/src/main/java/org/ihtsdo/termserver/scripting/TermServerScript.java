@@ -641,10 +641,10 @@ public abstract class TermServerScript implements RF2Constants {
 				Concept createdConcept;
 				debug ((dryRun ?"Dry run creating ":"Creating ") + c + info);
 				if (!dryRun) {
-					//Copy across the concept type to the returned object - it isn't known to the TS
-					ConceptType conceptType = c.getConceptType();
 					createdConcept = tsClient.createConcept(c, t.getBranchPath(), attempt > 2);
-					createdConcept.setConceptType(conceptType);
+					//Copy across the concept type and issues to the returned object - it isn't known to the TS
+					createdConcept.setConceptType(c.getConceptType());
+					createdConcept.setIssue(c.getIssues());
 				} else {
 					createdConcept = c.clone("NEW_SCTID");
 				}

@@ -8,7 +8,6 @@ import javax.mail.*;
 import javax.mail.internet.*;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.commons.lang.exception.ExceptionUtils;
 import org.ihtsdo.termserver.scripting.*;
 import org.ihtsdo.termserver.scripting.client.*;
 import org.ihtsdo.termserver.scripting.domain.*;
@@ -309,7 +308,7 @@ public abstract class BatchFix extends TermServerScript implements RF2Constants 
 		//Prefill the Edit Panel
 		try {
 			if (populateEditPanel) {
-				scaClient.setEditPanelUIState(project.getKey(), task.getKey(), task.toQuotedList());
+				scaClient.setEditPanelUIState(project.getKey(), task.getKey(), task.toList());
 			}
 			scaClient.setSavedListUIState(project.getKey(), task.getKey(), convertToSavedListJson(task));
 		} catch (Exception e) {

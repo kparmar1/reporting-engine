@@ -7,6 +7,7 @@ import org.ihtsdo.termserver.scripting.GraphLoader;
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 import org.ihtsdo.termserver.scripting.domain.*;
 import org.ihtsdo.termserver.scripting.util.SnomedUtils;
+import org.ihtsdo.termserver.scripting.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -202,6 +203,13 @@ public class BatchImportFormat implements RF2Constants {
 		if (!gbAccept.equals(Acceptability.NONE)) {
 			d.getAcceptabilityMap().put(GB_ENG_LANG_REFSET, gbAccept);
 		}
+		
+		if (StringUtils.initialLetterLowerCase(termStr)) {
+			d.setCaseSignificance(CaseSignificance.ENTIRE_TERM_CASE_SENSITIVE);
+		} if (StringUtils.isCaseSensitive(termStr)) {
+			d.setCaseSignificance(CaseSignificance.INITIAL_CHARACTER_CASE_INSENSITIVE);
+		}
+		
 		return d;
 	}
 

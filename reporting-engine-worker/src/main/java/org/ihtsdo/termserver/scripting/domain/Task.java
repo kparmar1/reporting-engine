@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.ihtsdo.termserver.scripting.TermServerScriptException;
 
@@ -84,18 +85,10 @@ public class Task {
 		}
 		return getSummary();
 	}
-	public String toQuotedList() {
-		StringBuilder quotedList = new StringBuilder(components.size()*10).append("[");
-		boolean first = true;
-		for (Component c : components) {
-			if (!first) {
-				quotedList.append(", ");
-			}
-			quotedList.append("\"").append(c.getId()).append("\"");
-			first = false;
-		}
-		quotedList.append("]");
-		return quotedList.toString();
+	public List<String> toList() {
+		return components.stream()
+				.map(c -> c.getId())
+				.collect(Collectors.toList());
 	}
 	
 	public void addAll(Collection<Component> components) {

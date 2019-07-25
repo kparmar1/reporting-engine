@@ -8,6 +8,7 @@ import org.ihtsdo.termserver.scripting.domain.Concept;
 import org.ihtsdo.termserver.scripting.domain.Project;
 import org.ihtsdo.termserver.scripting.domain.Task;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.GsonHttpMessageConverter;
 import org.springframework.web.client.RestClientException;
@@ -53,10 +54,10 @@ public class AuthoringServicesClient {
 		return task.getKey();
 	}
 
-	public void setEditPanelUIState(String project, String taskKey, String quotedList) throws IOException {
+	public void setEditPanelUIState(String project, String taskKey, List<String> conceptIds) throws IOException {
 		String endPointRoot = serverUrl + apiRoot + "projects/" + project + "/tasks/" + taskKey + "/ui-state/";
 		String url = endPointRoot + "edit-panel";
-		HttpEntity<String> request = new HttpEntity<>(quotedList, headers);
+		HttpEntity<List<String>> request = new HttpEntity<>(conceptIds, headers);
 		restTemplate.postForEntity(url, request, Void.class);
 	}
 	
